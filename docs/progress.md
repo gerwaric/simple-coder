@@ -10,7 +10,7 @@
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
 | 0 | Scaffolding | ~~Completed~~ | f19911f |
-| 1 | Shared Types + Database | Not started | |
+| 1 | Shared Types + Database | ~~Completed~~ | TBD |
 | 2 | Server HTTP + WebSocket | Not started | |
 | 3 | Agent Daemon | Not started | |
 | 4 | React UI | Not started | |
