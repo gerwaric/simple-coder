@@ -11,7 +11,7 @@
 |-------|-------------|--------|--------|
 | 0 | Scaffolding | ~~Completed~~ | f19911f |
 | 1 | Shared Types + Database | ~~Completed~~ | 7f479a4 |
-| 2 | Server HTTP + WebSocket | Not started | |
+| 2 | Server HTTP + WebSocket | ~~Completed~~ | TBD |
 | 3 | Agent Daemon | Not started | |
 | 4 | React UI | Not started | |
 | 5 | Docker Compose | Not started | |

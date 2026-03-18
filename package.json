@@ -2,7 +2,9 @@
   "name": "simple-coder",
   "private": true,
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "scripts": {
     "build": "pnpm -r build",
@@ -10,5 +12,9 @@
     "dev:agent": "pnpm --filter @simple-coder/agent dev",
     "dev:ui": "pnpm --filter @simple-coder/ui dev",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "ws": "^8.19.0"
   }
 }
