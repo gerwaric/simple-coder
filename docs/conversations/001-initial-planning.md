@@ -10,6 +10,7 @@
 - [ADR-006: Agent Authentication](../decisions/006-agent-authentication.md)
 - [ADR-007: Documentation Workflow](../decisions/007-documentation-workflow.md)
 - [ADR-008: CLAUDE.md Principles](../decisions/008-claude-md-principles.md)
+- [ADR-009: Progress Tracking and Implementation Prompts](../decisions/009-progress-tracking.md)
 
 ## Discussion
 
@@ -167,3 +168,35 @@ Assessment of our CLAUDE.md: missing the WHY (assessment context), missing the H
 **Tom:** I prefer smaller more contained commits.
 
 **Claude:** Agreed on sequence: Commit 1 (plan + docs structure), Commit 2 (conversation notes + ADRs), Commit 3 (Phase 0 scaffolding), then one or more commits per implementation phase.
+
+### Implementation Prompts — Single vs Per-Phase
+
+**Tom:** Can you create a prompt document to execute the implementation plan? I'm thinking we could organize this like the conversations and decisions, with a folder for prompts and an index.
+
+**Claude:** Good idea. A docs/prompts/ folder makes sense — same pattern as decisions and conversations, captures the instructions that drove each phase. This also satisfies the assessment requirement to show methodology for working with AI coding agents.
+
+Suggested one prompt per phase rather than per commit — the prompt describes the full scope of work for that phase, may result in one or more commits. Keeps prompts aligned with the plan's structure.
+
+**Tom:** What do you think about using a single prompt to kick off the entire implementation?
+
+**Claude:** Honest take: I'd advise against it. Context window pressure — ~40 files across 8 phases would push deep into the context window, quality degrades as context fills. Verification gaps — the plan is designed so each phase is independently testable, a single prompt would blow past those gates. Harder to debug — if something goes wrong in a massive run, hard to know where. Git history suffers — one prompt means likely one or two giant commits instead of intentional story-telling history.
+
+Suggested instead: a single orchestration document listing phases in order as a runbook, or executing each phase sequentially within one session with verification pauses.
+
+**Tom:** I'm not sure yet. How do you plan to track progress as things get implemented and tested?
+
+**Claude:** Right now I don't have a strong plan for that. Presented options: A) tasks in conversation (don't survive sessions), B) checklist in the plan itself (mixes plan with progress), C) separate progress file (survives sessions, clean separation), D) git tags (clean but not scannable).
+
+Recommended A + C combined: tasks within session for real-time tracking, plus docs/progress.md updated and committed at each checkpoint. This connects to the prompts question — if we have a progress file, a new session can read it, see what's done, and pick up where we left off. The per-phase prompts become resumable.
+
+**Tom:** Yes, let's set that up.
+
+**Claude:** Created docs/progress.md tracking all phases and pre-implementation tasks, plus docs/prompts/ with 8 per-phase prompts. Each prompt is self-contained — references the plan and progress file, lists specific files to create, verification steps, and commit instructions.
+
+### Extending vs New Conversation Notes
+
+**Tom:** I want to make sure this conversation is captured. What do you think about extending the existing conversation notes since we are in the same session vs creating a new file?
+
+**Claude:** Extend the existing one. It's the same session, same planning thread — splitting would create an artificial boundary. The new topics (CLAUDE.md principles, prompts structure, progress tracking) are direct consequences of decisions made earlier. A reader would expect the full arc in one file.
+
+One new ADR identified: ADR-009 for progress tracking and implementation prompts — the decision to use per-phase prompts with a progress file for cross-session continuity.
