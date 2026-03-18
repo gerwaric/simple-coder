@@ -1,0 +1,14 @@
+{
+  "name": "simple-coder",
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:server": "pnpm --filter @simple-coder/server dev",
+    "dev:agent": "pnpm --filter @simple-coder/agent dev",
+    "dev:ui": "pnpm --filter @simple-coder/ui dev",
+    "test": "pnpm -r test"
+  }
+}

@@ -9,7 +9,7 @@
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| 0 | Scaffolding | Not started | |
+| 0 | Scaffolding | ~~Completed~~ | TBD |
 | 1 | Shared Types + Database | Not started | |
 | 2 | Server HTTP + WebSocket | Not started | |
 | 3 | Agent Daemon | Not started | |
