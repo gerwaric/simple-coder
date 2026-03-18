@@ -1,46 +1,36 @@
-# Simple-Coder — Claude Code Conventions
+# Simple-Coder
 
-## Project Overview
+## Why
 
-A sync-based headless coding agent system with three components: server (Hono + Postgres), agent daemon (Vercel AI SDK), and UI (React + Vite). See `docs/implementation-plan.md` for full architecture.
+HumanLayer take-home assessment. Evaluates **design thinking and architecture**, not feature completeness. Prioritize simplicity and clean design over shipping features. Start minimal, iterate deliberately.
 
-## Monorepo Structure
+## What
 
-- `packages/shared/` — shared types and constants (all other packages depend on this)
-- `packages/server/` — Hono API server + WebSocket + Postgres
-- `packages/agent/` — headless coding agent daemon
+Sync-based headless coding agent: server (Hono + Postgres), agent daemon (Vercel AI SDK), UI (React + Vite). Three containers via Docker Compose.
+
+- `packages/shared/` — shared types and constants (all packages depend on this)
+- `packages/server/` — Hono API + WebSocket + Postgres
+- `packages/agent/` — headless agent daemon (connects outbound to server)
 - `packages/ui/` — React + Vite frontend
-- pnpm workspaces, tsup for server/agent builds, Vite for UI
 
-## Documentation Conventions
+For architecture details, read `docs/implementation-plan.md`. For design rationale, read `docs/decisions/`.
 
-### Architecture Decision Records (ADRs)
+## How
 
-- Stored in `docs/decisions/NNN-slug.md`
-- Use the ADR template defined in `docs/implementation-plan.md`
-- Created via the `/conversation-notes` command (not manually)
+```bash
+pnpm install              # install dependencies
+pnpm build                # build all packages
+pnpm dev:server           # run server in dev mode
+pnpm dev:agent            # run agent in dev mode
+pnpm dev:ui               # run UI in dev mode
+pnpm test                 # run tests
+docker compose up --build # run everything in containers
+```
 
-### Conversation Notes
+## Commits
 
-- Stored in `docs/conversations/NNN-slug.md`
-- Near-verbatim records of planning conversations — preserve the dialogue, don't summarize
-- Created via the `/conversation-notes` command
+Small, intentional commits. Meaningful messages. Each implementation phase gets at least one commit.
 
-### Cross-linking
+## Documentation
 
-- Each conversation note lists the ADRs it produced
-- Each ADR links back to its source conversation
-
-## Commit Conventions
-
-- Small, intentional commits that tell a story in the git history
-- Each implementation phase gets at least one commit
-- Commit messages should be meaningful and descriptive
-
-## Key Design Principles
-
-- Start minimal, iterate deliberately — simplicity over features
-- The server is the stateless broker; Postgres is the source of truth
-- The agent connects outbound only (no exposed ports)
-- The WebSocket protocol uses discriminated unions on a `type` field
-- `LlmClient` is stateless and reusable — designed to support sub-agent patterns
+Use `/conversation-notes` after planning sessions to generate conversation records and ADRs. Do not create ADRs manually.
