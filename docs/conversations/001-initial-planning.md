@@ -200,3 +200,15 @@ Recommended A + C combined: tasks within session for real-time tracking, plus do
 **Claude:** Extend the existing one. It's the same session, same planning thread — splitting would create an artificial boundary. The new topics (CLAUDE.md principles, prompts structure, progress tracking) are direct consequences of decisions made earlier. A reader would expect the full arc in one file.
 
 One new ADR identified: ADR-009 for progress tracking and implementation prompts — the decision to use per-phase prompts with a progress file for cross-session continuity.
+
+### Updating Notes Command — Avoiding Ambiguity
+
+**Tom:** Should we update the conversation-notes script so it can handle incremental updates, or create a separate command?
+
+**Claude:** The existing command is designed for creating new files, not updating existing ones. It wouldn't know to append to an existing conversation note or avoid duplicating ADRs. Considered three options: A) update existing command (more complex, ambiguity about which file to write to), B) separate /update-notes command, C) leave as-is and do updates manually.
+
+Initially recommended Option A, but Tom raised a good concern about the risk of the command being confused about which file to write to. The signals available (date, topic overlap, existing file contents) are too ambiguous for reliable LLM navigation.
+
+**Claude:** Revised to Option B. A separate /update-notes command that finds the most recent conversation note, appends new topics, checks existing ADRs to avoid duplicates, and creates only new ADRs. The user makes the judgment call about create vs update, not the LLM.
+
+**Tom:** I like that idea better.
