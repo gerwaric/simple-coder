@@ -56,7 +56,7 @@ LlmClient class — stateless and reusable:
 2. Start Postgres + server + agent
 3. Server logs show agent registered
 4. Create session via curl → agent receives session:assign
-5. Agent calls LLM, streams thinking (if provider supports) + response tokens back to server
+5. Agent calls LLM, streams response tokens back to server. If using Anthropic, verify thinking tokens also stream (requires explicit extended thinking opt-in via providerOptions).
 6. Server persists completed assistant message in DB
 7. Send another user message → agent responds again
 8. Stop session → agent acknowledges, signals ready
