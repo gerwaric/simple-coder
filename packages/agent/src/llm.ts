@@ -17,12 +17,13 @@ export interface LlmResult {
 
 export class LlmClient {
   private model: LanguageModel;
+  private provider: string;
 
   constructor() {
-    const provider = process.env.LLM_PROVIDER || "anthropic";
+    this.provider = process.env.LLM_PROVIDER || "anthropic";
     const modelId = process.env.LLM_MODEL || "claude-sonnet-4-20250514";
 
-    switch (provider) {
+    switch (this.provider) {
       case "anthropic": {
         const anthropic = createAnthropic({
           apiKey: process.env.LLM_API_KEY,
@@ -54,6 +55,8 @@ export class LlmClient {
     messages: Message[],
     signal?: AbortSignal,
   ): AsyncGenerator<LlmChunk, LlmResult> {
+    const thinkingBudget = Number(process.env.LLM_THINKING_BUDGET) || 10000;
+
     const result = streamText({
       model: this.model,
       system: SYSTEM_PROMPT,
@@ -62,6 +65,10 @@ export class LlmClient {
         content: m.content,
       })),
       abortSignal: signal,
+      providerOptions:
+        this.provider === "anthropic"
+          ? { anthropic: { thinking: { type: "enabled", budgetTokens: thinkingBudget } } }
+          : undefined,
     });
 
     let fullThinking = "";
