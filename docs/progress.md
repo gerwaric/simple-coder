@@ -13,7 +13,7 @@
 | 1 | Shared Types + Database | ~~Completed~~ | 7f479a4 |
 | 2 | Server HTTP + WebSocket | ~~Completed~~ | 9a74776 |
 | 3 | Agent Daemon | ~~Completed~~ | 32e52a4 |
-| 4 | React UI | Not started | |
+| 4 | React UI | ~~Completed~~ | |
 | 5 | Docker Compose | Not started | |
 | 6 | Testing | Not started | |
 | 7 | Polish | Not started | |
