@@ -67,3 +67,8 @@ export function sendToAgent(agentId: string, message: unknown): void {
   const agent = agents.get(agentId);
   if (agent) agent.ws.send(JSON.stringify(message));
 }
+
+export function resetConnections(): void {
+  agents.clear();
+  uiClients.clear();
+}

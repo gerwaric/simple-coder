@@ -15,7 +15,7 @@
 | 3 | Agent Daemon | ~~Completed~~ | 32e52a4 |
 | 4 | React UI | ~~Completed~~ | |
 | 5 | Docker Compose | ~~Completed~~ | |
-| 6 | Testing | Not started | |
+| 6 | Testing | ~~Completed~~ | |
 | 7 | Polish | Not started | |
 
 ## Pre-Implementation
