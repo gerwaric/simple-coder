@@ -1,10 +1,11 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { ServerToUI } from "@simple-coder/shared";
 
 export function useWebSocket(onMessage: (msg: ServerToUI) => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
+  const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -13,6 +14,7 @@ export function useWebSocket(onMessage: (msg: ServerToUI) => void) {
 
     ws.onopen = () => {
       console.log("[ws] connected");
+      setConnected(true);
     };
 
     ws.onmessage = (event) => {
@@ -27,6 +29,7 @@ export function useWebSocket(onMessage: (msg: ServerToUI) => void) {
     ws.onclose = () => {
       console.log("[ws] disconnected, reconnecting in 2s...");
       wsRef.current = null;
+      setConnected(false);
       setTimeout(connect, 2000);
     };
 
@@ -45,4 +48,6 @@ export function useWebSocket(onMessage: (msg: ServerToUI) => void) {
       wsRef.current = null;
     };
   }, [connect]);
+
+  return { connected };
 }

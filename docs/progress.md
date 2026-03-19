@@ -16,7 +16,7 @@
 | 4 | React UI | ~~Completed~~ | |
 | 5 | Docker Compose | ~~Completed~~ | |
 | 6 | Testing | ~~Completed~~ | |
-| 7 | Polish | Not started | |
+| 7 | Polish | ~~Completed~~ | |
 
 ## Pre-Implementation
 

@@ -85,7 +85,7 @@ export function useSessions() {
     }
   }, []);
 
-  useWebSocket(handleWsMessage);
+  const { connected } = useWebSocket(handleWsMessage);
 
   const createSession = useCallback(async (message: string) => {
     const { session } = await api.createSession("", message);
@@ -112,6 +112,7 @@ export function useSessions() {
     messages: selectedSessionId ? messages.get(selectedSessionId) || [] : [],
     streamingThinking: selectedSessionId ? streamingThinking.get(selectedSessionId) || "" : "",
     streamingContent: selectedSessionId ? streamingContent.get(selectedSessionId) || "" : "",
+    connected,
     createSession,
     sendMessage,
     stopSession,
