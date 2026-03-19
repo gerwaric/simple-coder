@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: new URL("../../../.env", import.meta.url).pathname });
 import { randomUUID } from "node:crypto";
 import { AgentConnection } from "./connection.js";
 

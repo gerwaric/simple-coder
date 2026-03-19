@@ -74,7 +74,8 @@ export class LlmClient {
     let fullThinking = "";
     let fullContent = "";
 
-    for await (const part of (await result).fullStream) {
+    const stream = (await result).fullStream;
+    for await (const part of stream) {
       if (part.type === "reasoning") {
         fullThinking += part.textDelta;
         yield { type: "thinking", content: part.textDelta };
