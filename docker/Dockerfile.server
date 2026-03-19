@@ -1,0 +1,30 @@
+# --- base: install dependencies ---
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
+COPY packages/ui/package.json packages/ui/
+RUN pnpm install --frozen-lockfile
+
+# --- build: compile everything ---
+FROM base AS build
+COPY tsconfig.base.json ./
+COPY packages/shared/ packages/shared/
+COPY packages/server/ packages/server/
+COPY packages/ui/ packages/ui/
+RUN pnpm --filter @simple-coder/shared build
+RUN pnpm --filter @simple-coder/ui build
+RUN pnpm --filter @simple-coder/server build
+# Copy UI dist into server's public directory
+RUN mkdir -p packages/server/dist/public && \
+    cp -r packages/ui/dist/* packages/server/dist/public/
+
+# --- runtime: minimal production image ---
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=build /app/packages/server/dist ./
+
+EXPOSE 3000
+CMD ["node", "index.js"]

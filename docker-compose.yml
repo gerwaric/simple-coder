@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-simple_coder}
+      POSTGRES_USER: ${POSTGRES_USER:-simple_coder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simple_coder}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simple_coder}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-simple_coder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simple_coder}
+      POSTGRES_DB: ${POSTGRES_DB:-simple_coder}
+      AGENT_SECRET: ${AGENT_SECRET:-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+    environment:
+      SERVER_WS_URL: ws://server:3000/ws/agent
+      AGENT_SECRET: ${AGENT_SECRET:-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-20250514}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_THINKING_BUDGET: ${LLM_THINKING_BUDGET:-10000}
+    depends_on:
+      - server
+
+volumes:
+  pgdata:

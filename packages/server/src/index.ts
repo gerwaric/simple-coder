@@ -2,6 +2,7 @@ import { config } from "dotenv";
 config({ path: new URL("../../../.env", import.meta.url).pathname });
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { sql } from "./db/index.js";
 import { initDb } from "./db/init.js";
@@ -26,8 +27,9 @@ app.get(
   upgradeWebSocket(() => createUiWsHandlers()),
 );
 
-// Health check
-app.get("/", (c) => c.text("simple-coder server"));
+// Static UI files (production)
+app.use("/*", serveStatic({ root: "./public" }));
+app.get("/*", serveStatic({ root: "./public", path: "index.html" }));
 
 const port = Number(process.env.SERVER_PORT) || 3000;
 

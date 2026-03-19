@@ -1,0 +1,26 @@
+FROM ubuntu:24.04
+
+# Install Node.js 20
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/agent/package.json packages/agent/
+RUN pnpm install --frozen-lockfile
+
+# Build
+COPY tsconfig.base.json ./
+COPY packages/shared/ packages/shared/
+COPY packages/agent/ packages/agent/
+RUN pnpm --filter @simple-coder/shared build
+RUN pnpm --filter @simple-coder/agent build
+
+CMD ["node", "packages/agent/dist/index.js"]

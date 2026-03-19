@@ -14,7 +14,7 @@
 | 2 | Server HTTP + WebSocket | ~~Completed~~ | 9a74776 |
 | 3 | Agent Daemon | ~~Completed~~ | 32e52a4 |
 | 4 | React UI | ~~Completed~~ | |
-| 5 | Docker Compose | Not started | |
+| 5 | Docker Compose | ~~Completed~~ | |
 | 6 | Testing | Not started | |
 | 7 | Polish | Not started | |
 
