@@ -1,4 +1,4 @@
-import type { SessionState, MessageRole } from "./constants.js";
+import type { SessionState, MessageRole, ApprovalStatus, ContextStatus } from "./constants.js";
 
 export interface Session {
   id: string;
@@ -15,5 +15,22 @@ export interface Message {
   role: MessageRole;
   content: string;
   thinking: string | null;
+  toolName: string | null;
+  toolArgs: Record<string, unknown> | null;
+  toolCallId: string | null;
+  approvalStatus: ApprovalStatus | null;
+  contextStatus: ContextStatus;
+  tokenCount: number | null;
+  createdAt: string;
+}
+
+export interface Summary {
+  id: string;
+  sessionId: string;
+  content: string;
+  tokenCount: number | null;
+  createdBy: "agent" | "user";
+  messageIds: string[];
+  positionAt: string;
   createdAt: string;
 }

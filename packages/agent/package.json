@@ -8,11 +8,12 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@simple-coder/shared": "workspace:*",
-    "ai": "^4.3.0",
     "@ai-sdk/anthropic": "^1.2.0",
     "@ai-sdk/openai": "^1.3.0",
-    "ws": "^8.18.0"
+    "@simple-coder/shared": "workspace:*",
+    "ai": "^4.3.0",
+    "ws": "^8.18.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/ws": "^8.18.0",

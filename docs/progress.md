@@ -34,9 +34,9 @@
 | 8a | Tool Types + Schema | ~~Completed~~ | |
 | 8b | Context Management Types + Schema | ~~Completed~~ | |
 | 9a | Tool Approval API + Protocol | ~~Completed~~ | |
-| 9b | Context Management API | Not started | |
-| 10a | Agent Tool Loop | Not started | |
-| 10b | Context Tool + Dynamic System Prompt | Not started | |
+| 9b | Context Management API | ~~Completed~~ | |
+| 10a | Agent Tool Loop | ~~Completed~~ | |
+| 10b | Context Tool + Dynamic System Prompt | ~~Completed~~ | |
 | 11 | UI Updates | Not started | |
 | 12 | Docker + Integration | Not started | |
 | 13 | Testing + Polish | Not started | |

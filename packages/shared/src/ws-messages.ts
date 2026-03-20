@@ -1,4 +1,5 @@
-import type { Session, Message } from "./types.js";
+import type { Session, Message, Summary } from "./types.js";
+import type { ContextStatus } from "./constants.js";
 
 // --- Agent ↔ Server messages ---
 
@@ -51,6 +52,7 @@ export interface AssistantMessageComplete {
 export interface ToolCall {
   type: "tool:call";
   sessionId: string;
+  toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
 }
@@ -58,8 +60,24 @@ export interface ToolCall {
 export interface ToolResult {
   type: "tool:result";
   sessionId: string;
+  toolCallId: string;
   toolName: string;
   result: unknown;
+}
+
+export interface ToolApprovalRequest {
+  type: "tool:approval:request";
+  sessionId: string;
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+}
+
+export interface ToolApprovalResponse {
+  type: "tool:approval:response";
+  toolCallId: string;
+  approved: boolean;
+  response?: string;
 }
 
 export interface SessionStop {
@@ -72,6 +90,28 @@ export interface SessionCompleted {
   sessionId: string;
 }
 
+// --- Context management messages (Server → Agent + UI) ---
+
+export interface ContextUpdated {
+  type: "context:updated";
+  sessionId: string;
+  messageIds: string[];
+  contextStatus: ContextStatus;
+}
+
+export interface SummaryCreated {
+  type: "summary:created";
+  sessionId: string;
+  summary: Summary;
+}
+
+export interface SummaryDeleted {
+  type: "summary:deleted";
+  sessionId: string;
+  summaryId: string;
+  restoredMessageIds: string[];
+}
+
 export type AgentToServer =
   | AgentRegister
   | AgentReady
@@ -80,12 +120,17 @@ export type AgentToServer =
   | AssistantToken
   | AssistantMessageComplete
   | ToolCall
+  | ToolResult
+  | ToolApprovalRequest
   | SessionCompleted;
 
 export type ServerToAgent =
   | SessionAssign
   | UserMessage
-  | ToolResult
+  | ToolApprovalResponse
+  | ContextUpdated
+  | SummaryCreated
+  | SummaryDeleted
   | SessionStop;
 
 export type AgentServerMessage = AgentToServer | ServerToAgent;
@@ -122,6 +167,7 @@ export interface MessageComplete {
 export interface UIToolCall {
   type: "tool:call";
   sessionId: string;
+  toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
 }
@@ -129,8 +175,44 @@ export interface UIToolCall {
 export interface UIToolResult {
   type: "tool:result";
   sessionId: string;
+  toolCallId: string;
   toolName: string;
   result: unknown;
+}
+
+export interface UIToolApprovalRequest {
+  type: "tool:approval:request";
+  sessionId: string;
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+}
+
+export interface UIContextUpdated {
+  type: "context:updated";
+  sessionId: string;
+  messageIds: string[];
+  contextStatus: ContextStatus;
+}
+
+export interface UISummaryCreated {
+  type: "summary:created";
+  sessionId: string;
+  summary: Summary;
+}
+
+export interface UISummaryDeleted {
+  type: "summary:deleted";
+  sessionId: string;
+  summaryId: string;
+  restoredMessageIds: string[];
+}
+
+export interface UIContextStatus {
+  type: "context:status";
+  sessionId: string;
+  usedTokens: number;
+  maxTokens: number;
 }
 
 export type ServerToUI =
@@ -140,4 +222,9 @@ export type ServerToUI =
   | TokenStream
   | MessageComplete
   | UIToolCall
-  | UIToolResult;
+  | UIToolResult
+  | UIToolApprovalRequest
+  | UIContextUpdated
+  | UISummaryCreated
+  | UISummaryDeleted
+  | UIContextStatus;

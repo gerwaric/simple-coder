@@ -1,19 +1,6 @@
-import { streamText, type LanguageModel } from "ai";
+import { streamText, type LanguageModel, type CoreMessage, type StreamTextResult } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { Message } from "@simple-coder/shared";
-
-const SYSTEM_PROMPT = "You are a helpful coding assistant.";
-
-export interface LlmChunk {
-  type: "thinking" | "text";
-  content: string;
-}
-
-export interface LlmResult {
-  content: string;
-  thinking: string | null;
-}
 
 export class LlmClient {
   private model: LanguageModel;
@@ -47,47 +34,29 @@ export class LlmClient {
         break;
       }
       default:
-        throw new Error(`Unknown LLM_PROVIDER: ${provider}`);
+        throw new Error(`Unknown LLM_PROVIDER: ${this.provider}`);
     }
   }
 
-  async *chat(
-    messages: Message[],
-    signal?: AbortSignal,
-  ): AsyncGenerator<LlmChunk, LlmResult> {
+  streamWithTools(opts: {
+    system: string;
+    messages: CoreMessage[];
+    tools: Record<string, any>;
+    signal?: AbortSignal;
+  }): StreamTextResult<any, any> {
     const thinkingBudget = Number(process.env.LLM_THINKING_BUDGET) || 10000;
 
-    const result = streamText({
+    return streamText({
       model: this.model,
-      system: SYSTEM_PROMPT,
-      messages: messages.map((m) => ({
-        role: m.role as "user" | "assistant" | "system",
-        content: m.content,
-      })),
-      abortSignal: signal,
+      system: opts.system,
+      messages: opts.messages,
+      tools: opts.tools,
+      abortSignal: opts.signal,
+      maxSteps: 1, // We handle the loop ourselves
       providerOptions:
         this.provider === "anthropic"
           ? { anthropic: { thinking: { type: "enabled", budgetTokens: thinkingBudget } } }
           : undefined,
     });
-
-    let fullThinking = "";
-    let fullContent = "";
-
-    const stream = (await result).fullStream;
-    for await (const part of stream) {
-      if (part.type === "reasoning") {
-        fullThinking += part.textDelta;
-        yield { type: "thinking", content: part.textDelta };
-      } else if (part.type === "text-delta") {
-        fullContent += part.textDelta;
-        yield { type: "text", content: part.textDelta };
-      }
-    }
-
-    return {
-      content: fullContent,
-      thinking: fullThinking || null,
-    };
   }
 }

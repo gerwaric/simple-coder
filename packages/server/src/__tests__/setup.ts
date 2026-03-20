@@ -27,9 +27,11 @@ export interface TestServer {
 
 export async function startTestServer(): Promise<TestServer> {
   resetConnections();
+  await sql`DROP TABLE IF EXISTS summary_messages CASCADE`;
+  await sql`DROP TABLE IF EXISTS summaries CASCADE`;
+  await sql`DROP TABLE IF EXISTS messages CASCADE`;
+  await sql`DROP TABLE IF EXISTS sessions CASCADE`;
   await initDb(sql);
-  await sql`DELETE FROM messages`;
-  await sql`DELETE FROM sessions`;
 
   const { app, injectWebSocket } = createApp(sql);
 
@@ -134,6 +136,8 @@ export function connectUi(port: number) {
 }
 
 export async function cleanupDb(): Promise<void> {
+  await sql`DELETE FROM summary_messages`;
+  await sql`DELETE FROM summaries`;
   await sql`DELETE FROM messages`;
   await sql`DELETE FROM sessions`;
 }

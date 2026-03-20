@@ -1,6 +1,6 @@
 import type { Sql } from "postgres";
 import type { WSContext, WSMessageReceive } from "hono/ws";
-import { SessionState, MessageRole } from "@simple-coder/shared";
+import { SessionState, MessageRole, ApprovalStatus } from "@simple-coder/shared";
 import type { AgentToServer } from "@simple-coder/shared";
 import { createMessage, updateSessionState } from "../db/queries.js";
 import {
@@ -100,9 +100,68 @@ export function createAgentWsHandlers(sql: Sql) {
       }
 
       case "tool:call": {
+        await createMessage(
+          sql,
+          msg.sessionId,
+          MessageRole.ToolCall,
+          "",
+          null,
+          {
+            toolName: msg.toolName,
+            toolArgs: msg.args,
+            toolCallId: msg.toolCallId,
+          },
+        );
         broadcastToUi({
           type: "tool:call",
           sessionId: msg.sessionId,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          args: msg.args,
+        });
+        break;
+      }
+
+      case "tool:result": {
+        await createMessage(
+          sql,
+          msg.sessionId,
+          MessageRole.ToolResult,
+          typeof msg.result === "string" ? msg.result : JSON.stringify(msg.result),
+          null,
+          {
+            toolName: msg.toolName,
+            toolCallId: msg.toolCallId,
+          },
+        );
+        broadcastToUi({
+          type: "tool:result",
+          sessionId: msg.sessionId,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          result: msg.result,
+        });
+        break;
+      }
+
+      case "tool:approval:request": {
+        await createMessage(
+          sql,
+          msg.sessionId,
+          MessageRole.ToolCall,
+          "",
+          null,
+          {
+            toolName: msg.toolName,
+            toolArgs: msg.args,
+            toolCallId: msg.toolCallId,
+            approvalStatus: ApprovalStatus.Pending,
+          },
+        );
+        broadcastToUi({
+          type: "tool:approval:request",
+          sessionId: msg.sessionId,
+          toolCallId: msg.toolCallId,
           toolName: msg.toolName,
           args: msg.args,
         });

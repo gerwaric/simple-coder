@@ -1,5 +1,6 @@
 import type { WSContext } from "hono/ws";
-import type { ServerToUI } from "@simple-coder/shared";
+import type { ServerToUI, Summary } from "@simple-coder/shared";
+import type { ContextStatus } from "@simple-coder/shared";
 
 interface AgentConnection {
   ws: WSContext;
@@ -66,6 +67,58 @@ export function broadcastToUi(message: ServerToUI): void {
 export function sendToAgent(agentId: string, message: unknown): void {
   const agent = agents.get(agentId);
   if (agent) agent.ws.send(JSON.stringify(message));
+}
+
+// --- Context broadcasting helpers ---
+
+export function broadcastContextUpdated(sessionId: string, messageIds: string[], contextStatus: ContextStatus): void {
+  const msg = { type: "context:updated" as const, sessionId, messageIds, contextStatus };
+  const data = JSON.stringify(msg);
+
+  // Send to agent assigned to this session
+  const agent = getAgentBySessionId(sessionId);
+  if (agent) {
+    const [, conn] = agent;
+    conn.ws.send(data);
+  }
+
+  // Send to UI
+  broadcastToUi(msg);
+}
+
+export function broadcastSummaryCreated(sessionId: string, summary: Summary): void {
+  const msg = { type: "summary:created" as const, sessionId, summary };
+  const data = JSON.stringify(msg);
+
+  const agent = getAgentBySessionId(sessionId);
+  if (agent) {
+    const [, conn] = agent;
+    conn.ws.send(data);
+  }
+
+  broadcastToUi(msg);
+}
+
+export function broadcastSummaryDeleted(sessionId: string, summaryId: string, restoredMessageIds: string[]): void {
+  const msg = { type: "summary:deleted" as const, sessionId, summaryId, restoredMessageIds };
+  const data = JSON.stringify(msg);
+
+  const agent = getAgentBySessionId(sessionId);
+  if (agent) {
+    const [, conn] = agent;
+    conn.ws.send(data);
+  }
+
+  broadcastToUi(msg);
+}
+
+export function broadcastContextStatus(sessionId: string, usedTokens: number, maxTokens: number): void {
+  broadcastToUi({
+    type: "context:status",
+    sessionId,
+    usedTokens,
+    maxTokens,
+  });
 }
 
 export function resetConnections(): void {

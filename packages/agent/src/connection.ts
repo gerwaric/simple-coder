@@ -1,7 +1,15 @@
 import WebSocket from "ws";
-import type { Message } from "@simple-coder/shared";
-import type { ServerToAgent } from "@simple-coder/shared";
+import { randomUUID } from "node:crypto";
+import type { Message, Summary } from "@simple-coder/shared";
+import type { ServerToAgent, ToolApprovalResponse } from "@simple-coder/shared";
 import { LlmClient } from "./llm.js";
+import { agentTools } from "./tools.js";
+import { executeTool } from "./tool-executor.js";
+import { assessToolCall } from "./safety.js";
+import { buildSystemPrompt } from "./system-prompt.js";
+import { toSdkMessages } from "./message-translator.js";
+
+const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 128000;
 
 export class AgentConnection {
   private ws: WebSocket | null = null;
@@ -15,6 +23,7 @@ export class AgentConnection {
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
   private shouldReconnect = true;
+  private approvalResolvers = new Map<string, (response: ToolApprovalResponse) => void>();
 
   constructor(agentId: string, serverUrl: string, secret: string) {
     this.agentId = agentId;
@@ -93,14 +102,14 @@ export class AgentConnection {
         console.log(`assigned session ${msg.session.id}`);
         this.currentSessionId = msg.session.id;
         this.messageHistory = msg.messages;
-        await this.runLlmTurn();
+        await this.runToolLoop();
         break;
       }
 
       case "user:message": {
         console.log(`received user message for session ${msg.message.sessionId}`);
         this.messageHistory.push(msg.message);
-        await this.runLlmTurn();
+        await this.runToolLoop();
         break;
       }
 
@@ -110,75 +119,247 @@ export class AgentConnection {
         this.abortController = null;
         this.currentSessionId = null;
         this.messageHistory = [];
+        // Clean up any pending approval resolvers
+        this.approvalResolvers.clear();
         this.send({ type: "agent:ready" });
         break;
       }
 
-      case "tool:result": {
-        // Placeholder — not implemented yet
+      case "tool:approval:response": {
+        const resolver = this.approvalResolvers.get(msg.toolCallId);
+        if (resolver) {
+          resolver(msg);
+          this.approvalResolvers.delete(msg.toolCallId);
+        }
+        break;
+      }
+
+      case "context:updated": {
+        // Update local message history to reflect context status changes from UI
+        for (const msgId of msg.messageIds) {
+          const m = this.messageHistory.find((h) => h.id === msgId);
+          if (m) m.contextStatus = msg.contextStatus;
+        }
+        break;
+      }
+
+      case "summary:created": {
+        // Mark summarized messages in local history
+        for (const msgId of msg.summary.messageIds) {
+          const m = this.messageHistory.find((h) => h.id === msgId);
+          if (m) m.contextStatus = "summarized";
+        }
+        break;
+      }
+
+      case "summary:deleted": {
+        // Restore messages to active
+        for (const msgId of msg.restoredMessageIds) {
+          const m = this.messageHistory.find((h) => h.id === msgId);
+          if (m) m.contextStatus = "active";
+        }
         break;
       }
     }
   }
 
-  private async runLlmTurn(): Promise<void> {
+  private async runToolLoop(): Promise<void> {
     if (!this.currentSessionId) return;
 
     const sessionId = this.currentSessionId;
     this.abortController = new AbortController();
 
     try {
-      const generator = this.llm.chat(this.messageHistory, this.abortController.signal);
-      let thinkingComplete = false;
-      let fullThinking = "";
-
       while (true) {
-        const { value, done } = await generator.next();
+        // Filter to active messages only
+        const activeMessages = this.messageHistory.filter((m) => m.contextStatus === "active");
+        const usedTokens = activeMessages.reduce((sum, m) => sum + (m.tokenCount ?? 0), 0);
+        const systemPrompt = buildSystemPrompt({ usedTokens, maxTokens: LLM_MAX_TOKENS });
+        const sdkMessages = toSdkMessages(activeMessages);
 
-        if (done) {
-          // done value is the LlmResult
-          const result = value;
-          this.send({
-            type: "assistant:message:complete",
-            sessionId,
-            content: result.content,
-            thinking: result.thinking,
-          });
+        const result = this.llm.streamWithTools({
+          system: systemPrompt,
+          messages: sdkMessages,
+          tools: agentTools,
+          signal: this.abortController.signal,
+        });
 
-          // Add to history for multi-turn
-          this.messageHistory.push({
-            id: "",
-            sessionId,
-            role: "assistant",
-            content: result.content,
-            thinking: result.thinking,
-            createdAt: new Date().toISOString(),
-          });
+        // Stream thinking and text tokens
+        let fullThinking = "";
+        let fullContent = "";
+        let thinkingComplete = false;
+
+        for await (const part of result.fullStream) {
+          if (part.type === "reasoning") {
+            fullThinking += part.textDelta;
+            this.send({
+              type: "thinking:token",
+              sessionId,
+              token: part.textDelta,
+            });
+          } else if (part.type === "text-delta") {
+            if (!thinkingComplete && fullThinking) {
+              thinkingComplete = true;
+              this.send({
+                type: "thinking:complete",
+                sessionId,
+                thinking: fullThinking,
+              });
+            }
+            fullContent += part.textDelta;
+            this.send({
+              type: "assistant:token",
+              sessionId,
+              token: part.textDelta,
+            });
+          }
+        }
+
+        // Get tool calls from the result
+        const toolCalls = await result.toolCalls;
+        const hasToolCalls = toolCalls && toolCalls.length > 0;
+
+        if (fullContent || !hasToolCalls) {
+          // Send the assistant message if there's content
+          if (fullContent) {
+            this.send({
+              type: "assistant:message:complete",
+              sessionId,
+              content: fullContent,
+              thinking: fullThinking || null,
+            });
+
+            this.messageHistory.push(this.makeMessage(sessionId, "assistant", fullContent, fullThinking || null));
+          }
+        }
+
+        if (!hasToolCalls) {
+          // No tool calls — we're done with this turn
           break;
         }
 
-        if (value.type === "thinking") {
-          fullThinking += value.content;
-          this.send({
-            type: "thinking:token",
-            sessionId,
-            token: value.content,
-          });
-        } else {
-          if (!thinkingComplete && fullThinking) {
-            thinkingComplete = true;
+        // If there was assistant text before tool calls, we already added it above.
+        // Now add an empty assistant message placeholder if needed for tool call grouping.
+        // The SDK model may produce text + tool calls in one response.
+
+        // Process each tool call
+        for (const tc of toolCalls) {
+          const toolCallId = randomUUID();
+          const toolName = tc.toolName;
+          const args = tc.args as Record<string, unknown>;
+          const { action } = assessToolCall(toolName, args);
+
+          console.log(`tool call: ${toolName} (${action}) — ${toolCallId}`);
+
+          let toolResult: unknown;
+
+          if (action === "execute") {
+            // Safe tool — execute immediately, then notify server
+            try {
+              toolResult = await executeTool(toolName, args, sessionId);
+            } catch (err: any) {
+              toolResult = { error: err.message };
+            }
+
             this.send({
-              type: "thinking:complete",
+              type: "tool:call",
               sessionId,
-              thinking: fullThinking,
+              toolCallId,
+              toolName,
+              args,
+            });
+
+            this.send({
+              type: "tool:result",
+              sessionId,
+              toolCallId,
+              toolName,
+              result: toolResult,
+            });
+          } else if (action === "approve") {
+            // Consequential tool — request approval, wait
+            this.send({
+              type: "tool:approval:request",
+              sessionId,
+              toolCallId,
+              toolName,
+              args,
+            });
+
+            const response = await this.waitForApproval(toolCallId);
+
+            if (response.approved) {
+              try {
+                toolResult = await executeTool(toolName, args, sessionId);
+              } catch (err: any) {
+                toolResult = { error: err.message };
+              }
+            } else {
+              toolResult = { rejected: true, message: "Tool call was rejected by the user" };
+            }
+
+            this.send({
+              type: "tool:result",
+              sessionId,
+              toolCallId,
+              toolName,
+              result: toolResult,
+            });
+          } else if (action === "ask_human") {
+            // ask_human — request response text from user
+            this.send({
+              type: "tool:approval:request",
+              sessionId,
+              toolCallId,
+              toolName,
+              args,
+            });
+
+            const response = await this.waitForApproval(toolCallId);
+            toolResult = { response: response.response ?? "" };
+
+            this.send({
+              type: "tool:result",
+              sessionId,
+              toolCallId,
+              toolName,
+              result: toolResult,
             });
           }
-          this.send({
-            type: "assistant:token",
+
+          // Add tool_call and tool_result to local history
+          this.messageHistory.push({
+            id: "",
             sessionId,
-            token: value.content,
+            role: "tool_call",
+            content: "",
+            thinking: null,
+            toolName,
+            toolArgs: args,
+            toolCallId,
+            approvalStatus: null,
+            contextStatus: "active",
+            tokenCount: null,
+            createdAt: new Date().toISOString(),
+          });
+
+          this.messageHistory.push({
+            id: "",
+            sessionId,
+            role: "tool_result",
+            content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult),
+            thinking: null,
+            toolName,
+            toolArgs: null,
+            toolCallId,
+            approvalStatus: null,
+            contextStatus: "active",
+            tokenCount: null,
+            createdAt: new Date().toISOString(),
           });
         }
+
+        // Loop back for the next LLM call with tool results
       }
     } catch (err: any) {
       if (err.name === "AbortError") {
@@ -189,6 +370,34 @@ export class AgentConnection {
     } finally {
       this.abortController = null;
     }
+  }
+
+  private waitForApproval(toolCallId: string): Promise<ToolApprovalResponse> {
+    return new Promise((resolve) => {
+      this.approvalResolvers.set(toolCallId, resolve);
+    });
+  }
+
+  private makeMessage(
+    sessionId: string,
+    role: string,
+    content: string,
+    thinking: string | null,
+  ): Message {
+    return {
+      id: "",
+      sessionId,
+      role: role as any,
+      content,
+      thinking,
+      toolName: null,
+      toolArgs: null,
+      toolCallId: null,
+      approvalStatus: null,
+      contextStatus: "active",
+      tokenCount: null,
+      createdAt: new Date().toISOString(),
+    };
   }
 
   private send(msg: Record<string, unknown>): void {
