@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Session, Message, ServerToUI } from "@simple-coder/shared";
+import type { Session, Message, Summary, ServerToUI } from "@simple-coder/shared";
 import * as api from "../api";
 import { useWebSocket } from "./useWebSocket";
+
+interface ContextGauge {
+  usedTokens: number;
+  maxTokens: number;
+}
 
 export function useSessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -9,6 +14,8 @@ export function useSessions() {
   const [messages, setMessages] = useState<Map<string, Message[]>>(new Map());
   const [streamingThinking, setStreamingThinking] = useState<Map<string, string>>(new Map());
   const [streamingContent, setStreamingContent] = useState<Map<string, string>>(new Map());
+  const [summaries, setSummaries] = useState<Map<string, Summary[]>>(new Map());
+  const [contextGauge, setContextGauge] = useState<Map<string, ContextGauge>>(new Map());
 
   // Load sessions on mount
   useEffect(() => {
@@ -27,6 +34,31 @@ export function useSessions() {
       .catch(console.error);
   }, [selectedSessionId, messages]);
 
+  // Load context status when session selected
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    if (contextGauge.has(selectedSessionId)) return;
+    api
+      .getContextStatus(selectedSessionId)
+      .then((gauge) => {
+        setContextGauge((prev) => new Map(prev).set(selectedSessionId, gauge));
+      })
+      .catch(console.error);
+  }, [selectedSessionId, contextGauge]);
+
+  const upsertMessage = (msg: Message) => {
+    setMessages((prev) => {
+      const sessionMsgs = prev.get(msg.sessionId) || [];
+      const idx = sessionMsgs.findIndex((m) => m.id === msg.id);
+      if (idx >= 0) {
+        const next = [...sessionMsgs];
+        next[idx] = msg;
+        return new Map(prev).set(msg.sessionId, next);
+      }
+      return new Map(prev).set(msg.sessionId, [...sessionMsgs, msg]);
+    });
+  };
+
   const handleWsMessage = useCallback((msg: ServerToUI) => {
     switch (msg.type) {
       case "session:updated":
@@ -42,12 +74,7 @@ export function useSessions() {
         break;
 
       case "message:created":
-        setMessages((prev) => {
-          const sessionMsgs = prev.get(msg.message.sessionId) || [];
-          // Avoid duplicates
-          if (sessionMsgs.some((m) => m.id === msg.message.id)) return prev;
-          return new Map(prev).set(msg.message.sessionId, [...sessionMsgs, msg.message]);
-        });
+        upsertMessage(msg.message);
         break;
 
       case "thinking:stream":
@@ -65,12 +92,7 @@ export function useSessions() {
         break;
 
       case "message:complete":
-        // Append final message and clear streaming state
-        setMessages((prev) => {
-          const sessionMsgs = prev.get(msg.message.sessionId) || [];
-          if (sessionMsgs.some((m) => m.id === msg.message.id)) return prev;
-          return new Map(prev).set(msg.message.sessionId, [...sessionMsgs, msg.message]);
-        });
+        upsertMessage(msg.message);
         setStreamingThinking((prev) => {
           const next = new Map(prev);
           next.delete(msg.message.sessionId);
@@ -81,6 +103,120 @@ export function useSessions() {
           next.delete(msg.message.sessionId);
           return next;
         });
+        break;
+
+      case "tool:call":
+        // Create a synthetic tool_call message in state
+        upsertMessage({
+          id: msg.toolCallId,
+          sessionId: msg.sessionId,
+          role: "tool_call",
+          content: "",
+          thinking: null,
+          toolName: msg.toolName,
+          toolArgs: msg.args,
+          toolCallId: msg.toolCallId,
+          approvalStatus: null,
+          contextStatus: "active",
+          tokenCount: null,
+          createdAt: new Date().toISOString(),
+        });
+        break;
+
+      case "tool:result":
+        upsertMessage({
+          id: `${msg.toolCallId}-result`,
+          sessionId: msg.sessionId,
+          role: "tool_result",
+          content: typeof msg.result === "string" ? msg.result : JSON.stringify(msg.result, null, 2),
+          thinking: null,
+          toolName: msg.toolName,
+          toolArgs: null,
+          toolCallId: msg.toolCallId,
+          approvalStatus: null,
+          contextStatus: "active",
+          tokenCount: null,
+          createdAt: new Date().toISOString(),
+        });
+        break;
+
+      case "tool:approval:request":
+        // Upsert the tool call message with pending approval
+        upsertMessage({
+          id: msg.toolCallId,
+          sessionId: msg.sessionId,
+          role: "tool_call",
+          content: "",
+          thinking: null,
+          toolName: msg.toolName,
+          toolArgs: msg.args,
+          toolCallId: msg.toolCallId,
+          approvalStatus: "pending",
+          contextStatus: "active",
+          tokenCount: null,
+          createdAt: new Date().toISOString(),
+        });
+        break;
+
+      case "context:updated":
+        setMessages((prev) => {
+          const sessionMsgs = prev.get(msg.sessionId);
+          if (!sessionMsgs) return prev;
+          const updated = sessionMsgs.map((m) =>
+            msg.messageIds.includes(m.id)
+              ? { ...m, contextStatus: msg.contextStatus }
+              : m
+          );
+          return new Map(prev).set(msg.sessionId, updated);
+        });
+        break;
+
+      case "summary:created":
+        setSummaries((prev) => {
+          const existing = prev.get(msg.sessionId) || [];
+          return new Map(prev).set(msg.sessionId, [...existing, msg.summary]);
+        });
+        // Mark summarized messages
+        setMessages((prev) => {
+          const sessionMsgs = prev.get(msg.sessionId);
+          if (!sessionMsgs) return prev;
+          const updated = sessionMsgs.map((m) =>
+            msg.summary.messageIds.includes(m.id)
+              ? { ...m, contextStatus: "summarized" as const }
+              : m
+          );
+          return new Map(prev).set(msg.sessionId, updated);
+        });
+        break;
+
+      case "summary:deleted":
+        setSummaries((prev) => {
+          const existing = prev.get(msg.sessionId) || [];
+          return new Map(prev).set(
+            msg.sessionId,
+            existing.filter((s) => s.id !== msg.summaryId)
+          );
+        });
+        // Restore messages to active
+        setMessages((prev) => {
+          const sessionMsgs = prev.get(msg.sessionId);
+          if (!sessionMsgs) return prev;
+          const updated = sessionMsgs.map((m) =>
+            msg.restoredMessageIds.includes(m.id)
+              ? { ...m, contextStatus: "active" as const }
+              : m
+          );
+          return new Map(prev).set(msg.sessionId, updated);
+        });
+        break;
+
+      case "context:status":
+        setContextGauge((prev) =>
+          new Map(prev).set(msg.sessionId, {
+            usedTokens: msg.usedTokens,
+            maxTokens: msg.maxTokens,
+          })
+        );
         break;
     }
   }, []);
@@ -105,6 +241,9 @@ export function useSessions() {
     await api.stopSession(selectedSessionId);
   }, [selectedSessionId]);
 
+  const currentGauge = selectedSessionId ? contextGauge.get(selectedSessionId) || null : null;
+  const currentSummaries = selectedSessionId ? summaries.get(selectedSessionId) || [] : [];
+
   return {
     sessions,
     selectedSessionId,
@@ -112,6 +251,8 @@ export function useSessions() {
     messages: selectedSessionId ? messages.get(selectedSessionId) || [] : [],
     streamingThinking: selectedSessionId ? streamingThinking.get(selectedSessionId) || "" : "",
     streamingContent: selectedSessionId ? streamingContent.get(selectedSessionId) || "" : "",
+    summaries: currentSummaries,
+    contextGauge: currentGauge,
     connected,
     createSession,
     sendMessage,

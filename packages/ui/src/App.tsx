@@ -10,6 +10,8 @@ export function App() {
     messages,
     streamingThinking,
     streamingContent,
+    summaries,
+    contextGauge,
     connected,
     createSession,
     sendMessage,
@@ -56,6 +58,8 @@ export function App() {
             messages={messages}
             streamingThinking={streamingThinking}
             streamingContent={streamingContent}
+            summaries={summaries}
+            contextGauge={contextGauge}
             onSend={sendMessage}
             onStop={stopSession}
             onCreateSession={createSession}
