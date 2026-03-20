@@ -109,11 +109,15 @@ export function sessionRoutes(sql: Sql): Hono {
     const message = await createMessage(sql, id, MessageRole.User, body.message);
     broadcastToUi({ type: "message:created", message });
 
-    // Relay to assigned agent
+    // Relay to assigned agent, or re-dispatch if agent was released
     const agent = getAgentBySessionId(id);
     if (agent) {
       const [agentId] = agent;
       sendToAgent(agentId, { type: "user:message", message });
+    } else {
+      // Agent was released after turn:complete — set session to pending for re-dispatch
+      await updateSessionState(sql, id, SessionState.Pending, null);
+      await dispatchPendingSessions(sql);
     }
 
     return c.json({ message }, 201);

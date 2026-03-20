@@ -144,6 +144,12 @@ export function createAgentWsHandlers(sql: Sql) {
         break;
       }
 
+      case "turn:complete": {
+        clearAgentSession(agentId);
+        await dispatchPendingSessions(sql);
+        break;
+      }
+
       case "tool:approval:request": {
         await createMessage(
           sql,

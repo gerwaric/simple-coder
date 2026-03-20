@@ -49,7 +49,12 @@ export function useSessions() {
   const upsertMessage = (msg: Message) => {
     setMessages((prev) => {
       const sessionMsgs = prev.get(msg.sessionId) || [];
-      const idx = sessionMsgs.findIndex((m) => m.id === msg.id);
+      // Match by id, or by toolCallId+role for tool messages (synthetic messages use toolCallId as id)
+      const idx = sessionMsgs.findIndex(
+        (m) =>
+          m.id === msg.id ||
+          (msg.toolCallId && m.toolCallId === msg.toolCallId && m.role === msg.role)
+      );
       if (idx >= 0) {
         const next = [...sessionMsgs];
         next[idx] = msg;

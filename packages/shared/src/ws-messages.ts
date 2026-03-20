@@ -112,6 +112,11 @@ export interface SummaryDeleted {
   restoredMessageIds: string[];
 }
 
+export interface TurnComplete {
+  type: "turn:complete";
+  sessionId: string;
+}
+
 export type AgentToServer =
   | AgentRegister
   | AgentReady
@@ -122,7 +127,8 @@ export type AgentToServer =
   | ToolCall
   | ToolResult
   | ToolApprovalRequest
-  | SessionCompleted;
+  | SessionCompleted
+  | TurnComplete;
 
 export type ServerToAgent =
   | SessionAssign

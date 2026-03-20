@@ -103,6 +103,8 @@ export class AgentConnection {
         this.currentSessionId = msg.session.id;
         this.messageHistory = msg.messages;
         await this.runToolLoop();
+        console.log(`turn complete for session ${this.currentSessionId}`);
+        this.send({ type: "turn:complete", sessionId: msg.session.id });
         break;
       }
 
@@ -110,6 +112,8 @@ export class AgentConnection {
         console.log(`received user message for session ${msg.message.sessionId}`);
         this.messageHistory.push(msg.message);
         await this.runToolLoop();
+        console.log(`turn complete for session ${this.currentSessionId}`);
+        this.send({ type: "turn:complete", sessionId: msg.message.sessionId });
         break;
       }
 
