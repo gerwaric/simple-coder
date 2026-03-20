@@ -19,3 +19,4 @@
 | 015 | [Approval Flow Design](015-approval-flow-design.md) | Accepted | 2026-03-19 | [Conv 002](../conversations/002-coding-agent-design.md) |
 | 016 | [WebSocket Protocol Extension](016-websocket-protocol-extension.md) | Accepted | 2026-03-19 | [Conv 002](../conversations/002-coding-agent-design.md) |
 | 017 | [Dynamic System Prompt](017-dynamic-system-prompt.md) | Accepted | 2026-03-19 | [Conv 002](../conversations/002-coding-agent-design.md) |
+| 018 | [Sub-Phase Implementation Tracks](018-sub-phase-tracks.md) | Accepted | 2026-03-20 | [Conv 003](../conversations/003-coding-agent-implementation.md) |
