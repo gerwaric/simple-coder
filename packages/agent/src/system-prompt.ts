@@ -2,7 +2,7 @@ export function buildSystemPrompt(state: {
   usedTokens: number;
   maxTokens: number;
 }): string {
-  const pct = Math.round((state.usedTokens / state.maxTokens) * 100);
+  const pct = state.maxTokens > 0 ? Math.round((state.usedTokens / state.maxTokens) * 100) : 0;
   const warning =
     pct > 70
       ? "\nWARNING: Context is above 70%. Summarize or drop old messages before continuing."

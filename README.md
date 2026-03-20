@@ -1,6 +1,6 @@
 # Simple-Coder
 
-A sync-based headless coding agent system with a Hono server, agent daemon, and React UI. Built as a HumanLayer take-home assessment.
+A sync-based headless coding agent with tools, human-in-the-loop approval, and context management. Hono server, agent daemon, and React UI. Built as a HumanLayer take-home assessment.
 
 ## Quick Start
 
@@ -11,7 +11,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open **http://localhost:3000**. Type a message to create a session. The agent picks it up and streams a response in real-time, with thinking tokens shown in a collapsible section.
+Open **http://localhost:3000**. Type a message to create a session. The agent picks it up, uses tools to explore and modify code, and streams responses in real-time. Mutating actions (bash, write_file) require your approval before execution.
 
 ## Architecture
 
@@ -29,16 +29,16 @@ Open **http://localhost:3000**. Type a message to create a session. The agent pi
 
 **Three components, one port:**
 
-- **Server** (Hono) — HTTP API, two WebSocket paths, static UI files. All persistent state in Postgres. In-memory connection registry makes the server a stateless broker.
-- **Agent** (Vercel AI SDK) — Connects outbound to the server, no exposed ports. Streams thinking tokens and response tokens separately. Reconnects with exponential backoff.
-- **UI** (React + Vite) — Real-time updates via WebSocket. Session list, chat panel, streaming message display with collapsible thinking.
+- **Server** (Hono) — HTTP API, two WebSocket paths, static UI files. All persistent state in Postgres. In-memory connection registry makes the server a stateless broker. Manages tool approval flow and context state.
+- **Agent** (Vercel AI SDK) — Connects outbound to the server, no exposed ports. Runs an autonomous tool loop: calls LLM, executes safe tools immediately, requests approval for mutating tools, repeats until no tool calls remain. Reconnects with exponential backoff.
+- **UI** (React + Vite) — Real-time updates via WebSocket. Session list, chat panel, streaming messages, tool call rendering, approval buttons, and context management controls.
 
 ### WebSocket Protocol
 
 Two paths with different trust models:
 
-- `/ws/agent` — Bidirectional. Agent registers with a shared secret, receives session assignments, streams LLM tokens back. Server validates authentication and rejects unauthorized connections.
-- `/ws/ui` — Server→UI broadcast. Session updates, message events, streaming tokens. No authentication (single-user localhost deployment).
+- `/ws/agent` — Bidirectional. Agent registers with a shared secret, receives session assignments, streams LLM tokens back, sends tool calls/results, and receives approval responses. Server validates authentication and rejects unauthorized connections.
+- `/ws/ui` — Server→UI broadcast. Session updates, message events, streaming tokens, tool approval requests, and context status updates. No authentication (single-user localhost deployment).
 
 All messages are JSON with a discriminated `type` field. Types are defined in `packages/shared/src/ws-messages.ts`.
 
@@ -46,10 +46,34 @@ All messages are JSON with a discriminated `type` field. Types are defined in `p
 
 1. User sends a message → `POST /api/sessions` → session created as **pending**
 2. Server finds an idle agent → dispatches via `session:assign` → state becomes **active**
-3. Agent runs LLM, streams thinking + response tokens → server persists and relays to UI
-4. User sends follow-up → server relays to agent → agent responds
-5. User stops session → server sends `session:stop` to agent → state becomes **stopped**
-6. If agent disconnects → active session returns to **pending** (re-dispatchable to next agent)
+3. Agent runs tool loop: calls LLM, executes tools, streams thinking + response tokens
+4. When the LLM produces no tool calls, the agent sends `turn:complete` and releases the session
+5. User sends follow-up → session re-dispatched to an idle agent with full message history
+6. User stops session → server sends `session:stop` to agent → state becomes **stopped**
+7. If agent disconnects → active session returns to **pending** (re-dispatchable to next agent)
+
+### Tools and Approval
+
+The agent has five tools, classified by safety:
+
+| Tool | Purpose | Approval |
+|------|---------|----------|
+| `read_file` | Read files from the workspace | No |
+| `context` | Manage context window (drop/summarize/restore messages) | No |
+| `bash` | Run shell commands | **Yes** |
+| `write_file` | Write files to the workspace | **Yes** |
+| `ask_human` | Ask the user a question | Blocks for text response |
+
+Safe tools (`read_file`, `context`) execute immediately. Consequential tools (`bash`, `write_file`) pause for user approval via the UI. `ask_human` blocks until the user provides a text response.
+
+### Context Management
+
+The agent manages its context window proactively:
+
+- **Drop** messages to remove them from the active context (recoverable)
+- **Summarize** a group of messages into a shorter summary
+- **Restore** dropped or summarized messages back to active
+- A context gauge shows current token usage vs. the configured maximum
 
 ## Project Structure
 
@@ -80,31 +104,39 @@ pnpm test
 
 Detailed rationale is in [`docs/decisions/`](docs/decisions/). Key choices:
 
-**Zero tools first.** The agent starts as a conversational LLM with no tool access. This proves the infrastructure — streaming, sync, persistence, real-time UI — works correctly before adding tool complexity. Tools are pluggable: the protocol already defines `tool:call` and `tool:result` message types.
+**Infrastructure first, then tools.** Phases 0–7 built a zero-tool conversational agent to prove streaming, sync, persistence, and real-time UI work. Phases 8–12 added the tool system, approval flow, and context management on top of proven infrastructure.
 
-**Thinking tokens in the protocol.** Reasoning tokens are streamed separately from response tokens and displayed in a collapsible UI section. This gives visibility into the LLM's reasoning process and creates a natural place for human oversight.
+**Three-way safety classification.** Tool calls are classified as `execute` (safe — run immediately), `approve` (consequential — wait for user approval), or `ask_human` (block for text response). This is an extensible seam: the classifier can be swapped without changing the tool loop. See ADR-013.
+
+**Flat message model for tool calls.** Tool calls and results are stored as regular messages with additional columns (`toolName`, `toolArgs`, `toolCallId`, `approvalStatus`), not in a separate table. This keeps the message timeline linear and simplifies the UI. See ADR-010.
+
+**Context management as a first-class tool.** The agent can manage its own context window via the `context` tool — dropping, summarizing, and restoring messages. Summaries replace groups of messages with a shorter text, enforced by database constraints (no overlapping summaries, only active messages can be summarized). See ADR-015.
 
 **Server as stateless broker.** The server holds connections in memory but all persistent state lives in Postgres. A server restart means agents reconnect and sessions resume from the database. This also enables `docker compose up --scale agent=3` with zero code changes.
 
-**Agent authentication via shared secret.** The agent sends `AGENT_SECRET` during WebSocket registration. The server rejects connections with invalid secrets. UI auth is skipped — this is a single-user localhost deployment.
+**Turn-based agent lifecycle.** After each tool loop completes, the agent sends `turn:complete` and releases the session. Follow-up messages re-dispatch the session with full history. This keeps agents available for other work between turns. See ADR-019.
 
-**Extensibility path.** The architecture naturally supports:
-- **Tool calls** — defined in the protocol, not yet wired. Adding tools means implementing a tool executor in the agent and rendering tool events in the UI.
-- **Human-in-the-loop approval** — the server-as-broker model supports holding tool calls pending until a human approves them via the UI.
-- **Multiple agents** — the dispatch model supports N agents. `--scale agent=3` works today.
-- **Sub-agents** — the `LlmClient` is stateless and reusable. Sub-agents are just additional instances with different system prompts.
+Full design rationale is in [`docs/decisions/`](docs/decisions/) (ADRs 001–020) and [`docs/coding-agent-plan.md`](docs/coding-agent-plan.md).
 
 ## Testing
 
-12 integration tests covering the full session lifecycle:
+63 integration tests across 7 test files:
 
-- Session CRUD via HTTP API
-- Agent authentication (valid + invalid secret)
-- Session dispatch to idle agents
-- Message persistence and token streaming to UI
-- Session stop and agent disconnect recovery
+- **Sessions** — CRUD operations, error handling
+- **Agent WebSocket** — Authentication, dispatch, disconnect recovery
+- **Session Lifecycle** — Full create→dispatch→respond→stop flow, turn:complete agent release, follow-up re-dispatch, multi-session sequential handling, agent failover
+- **Tool Messages** — Tool call/result persistence, WebSocket broadcast flow
+- **Tool Approval** — Approve/reject/respond endpoints, error cases, UI broadcast
+- **Context Management** — Token estimation, status updates, summary CRUD, constraint enforcement
+- **Context API** — REST endpoints for drop/restore, summarize, context status
 
-Tests use real Postgres (via Docker) and simulate the agent protocol directly — no LLM mocking needed.
+Tests use real Postgres (via Docker) and simulate the agent WebSocket protocol directly — no LLM mocking needed.
+
+```bash
+docker compose up -d postgres
+docker compose exec postgres psql -U simple_coder -c "CREATE DATABASE simple_coder_test;"
+pnpm test
+```
 
 ## AI Coding Agent Usage
 

@@ -139,6 +139,143 @@ describe("Full session lifecycle", () => {
     agent.ws.close();
   });
 
+  it("turn:complete clears agent assignment and allows new session pickup", async () => {
+    // Connect agent
+    const agent = await connectAgent(server.port, "turn-agent");
+    await agent.waitFor("agent:registered");
+    agent.ws.send(JSON.stringify({ type: "agent:ready" }));
+
+    // Create first session
+    const res1 = await fetch(`${server.baseUrl}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "first task" }),
+    });
+    const { session: session1 } = await res1.json();
+
+    // Agent receives assignment
+    await agent.waitFor("session:assign");
+
+    // Agent completes turn
+    agent.ws.send(
+      JSON.stringify({
+        type: "assistant:message:complete",
+        sessionId: session1.id,
+        content: "Done",
+        thinking: null,
+      }),
+    );
+    agent.ws.send(
+      JSON.stringify({ type: "turn:complete", sessionId: session1.id }),
+    );
+
+    // Wait for server to process turn:complete
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Create a second session — agent should pick it up since it's idle now
+    const res2 = await fetch(`${server.baseUrl}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "second task" }),
+    });
+    const { session: session2 } = await res2.json();
+
+    // Agent should receive the second session
+    const assign2 = await agent.waitFor("session:assign");
+    expect((assign2.session as { id: string }).id).toBe(session2.id);
+
+    agent.ws.close();
+  });
+
+  it("follow-up message re-dispatches after agent released by turn:complete", async () => {
+    // Connect agent
+    const agent = await connectAgent(server.port, "followup-agent");
+    await agent.waitFor("agent:registered");
+    agent.ws.send(JSON.stringify({ type: "agent:ready" }));
+
+    // Create session
+    const createRes = await fetch(`${server.baseUrl}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "hello" }),
+    });
+    const { session } = await createRes.json();
+
+    // Agent gets assigned, completes turn
+    await agent.waitFor("session:assign");
+    agent.ws.send(
+      JSON.stringify({
+        type: "assistant:message:complete",
+        sessionId: session.id,
+        content: "Hi there",
+        thinking: null,
+      }),
+    );
+    agent.ws.send(
+      JSON.stringify({ type: "turn:complete", sessionId: session.id }),
+    );
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Send follow-up message — agent is released, so session should be re-dispatched
+    const followUpRes = await fetch(`${server.baseUrl}/api/sessions/${session.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "follow up question" }),
+    });
+    // The session state was not updated to active after turn:complete,
+    // but the POST /:id/messages endpoint checks for active state.
+    // After turn:complete, session is still active but agent is unassigned.
+    // The endpoint should re-dispatch to the idle agent.
+    expect(followUpRes.status).toBe(201);
+
+    // Agent should receive the session again via re-dispatch
+    const assign2 = await agent.waitFor("session:assign");
+    expect((assign2.session as { id: string }).id).toBe(session.id);
+
+    // Verify the re-dispatched session includes full history
+    const messages = assign2.messages as Array<{ content: string }>;
+    expect(messages.length).toBeGreaterThanOrEqual(3); // original + assistant + follow-up
+
+    agent.ws.close();
+  });
+
+  it("multiple sequential sessions served by one agent", async () => {
+    const agent = await connectAgent(server.port, "multi-agent");
+    await agent.waitFor("agent:registered");
+    agent.ws.send(JSON.stringify({ type: "agent:ready" }));
+
+    // Create and complete 3 sessions sequentially
+    for (let i = 0; i < 3; i++) {
+      const res = await fetch(`${server.baseUrl}/api/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: `task ${i}` }),
+      });
+      const { session } = await res.json();
+
+      const assign = await agent.waitFor("session:assign");
+      expect((assign.session as { id: string }).id).toBe(session.id);
+
+      agent.ws.send(
+        JSON.stringify({
+          type: "assistant:message:complete",
+          sessionId: session.id,
+          content: `done ${i}`,
+          thinking: null,
+        }),
+      );
+      agent.ws.send(
+        JSON.stringify({ type: "turn:complete", sessionId: session.id }),
+      );
+
+      // Wait for server to process
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    agent.ws.close();
+  });
+
   it("new agent picks up pending session after previous agent disconnects", async () => {
     // Create a session
     const createRes = await fetch(`${server.baseUrl}/api/sessions`, {

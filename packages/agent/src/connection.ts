@@ -123,7 +123,10 @@ export class AgentConnection {
         this.abortController = null;
         this.currentSessionId = null;
         this.messageHistory = [];
-        // Clean up any pending approval resolvers
+        // Reject any pending approval promises so runToolLoop can exit cleanly
+        for (const [, resolver] of this.approvalResolvers) {
+          resolver({ type: "tool:approval:response", toolCallId: "", approved: false });
+        }
         this.approvalResolvers.clear();
         this.send({ type: "agent:ready" });
         break;

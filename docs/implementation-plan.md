@@ -137,8 +137,14 @@ Discriminated union on `type` field, JSON messages.
 - `thinking:complete` — agent finished thinking (full thinking text)
 - `assistant:token` — agent streams a response text chunk
 - `assistant:message:complete` — agent finished a response (full message including thinking)
-- `tool:call` — *(placeholder, not implemented yet)* agent invokes a tool
-- `tool:result` — *(placeholder, not implemented yet)* tool execution result
+- `tool:call` — agent invokes a tool (safe tools, already executed)
+- `tool:result` — tool execution result
+- `tool:approval:request` — agent sends tool call needing human approval
+- `tool:approval:response` — server sends approval/rejection to agent
+- `turn:complete` — agent finished processing (no more tool calls)
+- `context:updated` — server notifies agent of context status changes
+- `summary:created` — server notifies agent of new summary
+- `summary:deleted` — server notifies agent of restored summary
 - `session:stop` — server tells agent to abort
 - `session:completed` — agent signals session done
 
@@ -148,13 +154,15 @@ Discriminated union on `type` field, JSON messages.
 - `thinking:stream` — streaming thinking token for display
 - `token:stream` — streaming response token for display
 - `message:complete` — final assistant message (includes thinking if present)
-- `tool:call` — *(placeholder)* agent tool invocation for display
-- `tool:result` — *(placeholder)* tool result for display
+- `tool:call` — agent tool invocation for display
+- `tool:result` — tool result for display
+- `tool:approval:request` — tool call needing human approval
+- `context:updated` — message context status changed
+- `context:status` — token counts for context gauge
+- `summary:created` — new summary created
+- `summary:deleted` — summary restored/deleted
 
-The protocol is designed to accommodate the full event model described in the spec
-(tool calls, thinking tokens, assistant messages) even though only thinking + assistant
-messages are implemented initially. Placeholder types are defined in `ws-messages.ts`
-but nothing sends them yet.
+The protocol supports the full event model: thinking tokens, assistant messages, tool calls with approval flow, and context management. All types are defined in `ws-messages.ts`. See [`coding-agent-plan.md`](coding-agent-plan.md) for the complete protocol specification added in Phases 8–12.
 
 ## Session Lifecycle
 
@@ -344,13 +352,8 @@ texture of how ideas developed — the ADRs extract the decisions.
 
 Phases 8–13 evolve the system from a conversational agent into a coding agent with tools, approval flow, and context management. See [`docs/coding-agent-plan.md`](coding-agent-plan.md) for the full plan, and ADR-010 through ADR-017 for design decisions.
 
-## Extensibility Notes (for README)
+## Extensibility Notes
 
-The protocol and database are designed to support the full event model from day one:
-- **Tool calls**: `tool:call` and `tool:result` message types are defined but not yet wired.
-  Adding tools means implementing a tool executor in the agent and rendering tool events in the UI.
-- **Human-in-the-loop approval**: The server-as-broker architecture naturally supports a
-  pattern where tool calls are held pending until a human approves them via the UI — the
-  server simply delays relaying the approval to the agent.
-- **Multiple agents**: The dispatch model supports N agents connecting to one server.
-  `docker compose up --scale agent=3` would work with zero code changes.
+- **New tools**: Add a tool definition in `packages/agent/src/tools.ts`, an executor case in `tool-executor.ts`, and a safety classification in `safety.ts`. No server or protocol changes needed.
+- **Multiple agents**: The dispatch model supports N agents connecting to one server. `docker compose up --scale agent=3` works with zero code changes.
+- **Sub-agents**: The `LlmClient` is stateless and reusable. Sub-agents are additional instances with different system prompts.
