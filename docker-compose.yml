@@ -44,6 +44,8 @@ services:
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-20250514}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_THINKING_BUDGET: ${LLM_THINKING_BUDGET:-10000}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-128000}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     depends_on:
       - server
 

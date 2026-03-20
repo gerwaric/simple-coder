@@ -37,8 +37,8 @@
 | 9b | Context Management API | ~~Completed~~ | |
 | 10a | Agent Tool Loop | ~~Completed~~ | |
 | 10b | Context Tool + Dynamic System Prompt | ~~Completed~~ | |
-| 11 | UI Updates | Not started | |
-| 12 | Docker + Integration | Not started | |
+| 11 | UI Updates | ~~Completed~~ | |
+| 12 | Docker + Integration | ~~Completed~~ | |
 | 13 | Testing + Polish | Not started | |
 
 ### Dependency Graph

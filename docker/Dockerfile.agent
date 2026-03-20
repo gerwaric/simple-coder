@@ -1,9 +1,12 @@
 FROM ubuntu:24.04
 
-# Install Node.js 20
+# Install dev tools and Node.js 20
 RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y \
+      curl \
+      git \
+      build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g pnpm && \
     rm -rf /var/lib/apt/lists/*
@@ -23,4 +26,12 @@ COPY packages/agent/ packages/agent/
 RUN pnpm --filter @simple-coder/shared build
 RUN pnpm --filter @simple-coder/agent build
 
-CMD ["node", "packages/agent/dist/index.js"]
+# Create workspace and non-root user
+RUN mkdir -p /workspace && \
+    useradd -m -s /bin/bash agent && \
+    chown agent:agent /workspace
+
+USER agent
+WORKDIR /workspace
+
+CMD ["node", "/app/packages/agent/dist/index.js"]
