@@ -31,12 +31,24 @@
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| 8 | Schema + Type Updates | Not started | |
-| 9 | Server API + Protocol | Not started | |
-| 10 | Agent Tool Loop | Not started | |
+| 8a | Tool Types + Schema | ~~Completed~~ | |
+| 8b | Context Management Types + Schema | ~~Completed~~ | |
+| 9a | Tool Approval API + Protocol | ~~Completed~~ | |
+| 9b | Context Management API | Not started | |
+| 10a | Agent Tool Loop | Not started | |
+| 10b | Context Tool + Dynamic System Prompt | Not started | |
 | 11 | UI Updates | Not started | |
 | 12 | Docker + Integration | Not started | |
 | 13 | Testing + Polish | Not started | |
+
+### Dependency Graph
+
+```
+8a ──→ 9a ──→ 10a ──→ 11 ──→ 12 ──→ 13
+8b ──→ 9b ──→ 10b ──↗
+```
+
+The tool track (a) and context track (b) can be developed independently up to Phase 10, then merge at Phase 11. Each sub-phase includes incremental integration tests.
 
 ## Coding Agent Pre-Implementation
 

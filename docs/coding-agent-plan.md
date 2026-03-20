@@ -224,31 +224,58 @@ Three-way classification: `execute` (safe tools — run immediately), `approve` 
 
 ## Build Sequence
 
-### Phase 8: Schema + Type Updates
-- Expand Message type, add new roles and fields
-- Add summaries/summary_messages tables
-- Update ws-messages.ts with new message types
-- Update constants with new roles and statuses
+Phases 8–10 are split into sub-phases: the (a) track covers tools and approval, the (b) track covers context management. They can be developed independently up to Phase 10, then merge at Phase 11. Each sub-phase includes incremental integration tests.
 
-### Phase 9: Server API + Protocol
-- New REST endpoints for approval and context management
-- Server-side WebSocket handling for new message types
-- Context status broadcasting
-- Token count estimation utility
+```
+8a ──→ 9a ──→ 10a ──→ 11 ──→ 12 ──→ 13
+8b ──→ 9b ──→ 10b ──↗
+```
 
-### Phase 10: Agent Tool Loop
+### Phase 8a: Tool Types + Schema
+- Add tool_call/tool_result message roles
+- Add toolName, toolArgs, toolCallId, approvalStatus to Message
+- Update DB schema and queries for tool fields
+- Tests: tool message persistence, approval status queries
+
+### Phase 8b: Context Management Types + Schema
+- Add contextStatus, tokenCount to Message
+- Add Summary type, summaries + summary_messages tables
+- Add context-related query functions (getActiveMessages, createSummary, etc.)
+- Token estimation utility
+- Tests: context status updates, summary CRUD, constraint enforcement
+
+### Phase 9a: Tool Approval API + Protocol
+- REST endpoints: approve, reject, respond (for ask_human)
+- WebSocket handling: tool:call, tool:approval:request, tool:result
+- Tests: approval flow end-to-end, error cases
+
+### Phase 9b: Context Management API
+- REST endpoints: PATCH context-status, POST summaries, DELETE summaries, GET context
+- WebSocket broadcasting for context updates
+- Session response includes summaries
+- Tests: context operations via REST, summary validation rules
+
+### Phase 10a: Agent Tool Loop
 - Own agent loop replacing single LLM call
-- Tool definitions and executor
-- Safety check function
-- Dynamic system prompt builder
+- Tool definitions (bash, read_file, write_file, ask_human — no context yet)
+- Tool executor for local execution
+- Safety check (all bash requires approval)
+- Static system prompt
 - Message format translation (our format ↔ Vercel AI SDK)
+- Approval waiting mechanism
+
+### Phase 10b: Context Tool + Dynamic System Prompt
+- Add context tool definition and executor (HTTP to server API)
+- Dynamic system prompt with token budget and warnings
+- Handle context:updated, summary:created, summary:deleted from server
+- Filter messages by contextStatus before LLM calls
 
 ### Phase 11: UI Updates
 - Tool call/result message rendering
-- Approval flow UI
-- ask_human UI
-- Context gauge
+- Approval flow UI (approve/reject buttons, ask_human text input)
+- Context gauge (token count display)
 - Per-message drop/restore controls
+- Summary display and restore
 
 ### Phase 12: Docker + Integration
 - Update agent Dockerfile with dev tools
@@ -256,6 +283,6 @@ Three-way classification: `execute` (safe tools — run immediately), `approve` 
 - End-to-end testing in containers
 
 ### Phase 13: Testing + Polish
-- Integration tests for tool execution, approval, context management
-- Error handling for tool failures
+- End-to-end integration tests (full agent→server→UI flows)
+- Error handling for tool failures and edge cases
 - README updates
