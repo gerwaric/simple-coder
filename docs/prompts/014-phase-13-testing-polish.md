@@ -29,6 +29,12 @@ Extend the existing test suite (or add new test files) to cover:
 - Verify overlap constraint: cannot add a message to two summaries (Rule 1)
 - Restore from summary → messages back to active, summary deleted
 
+### Session Lifecycle Tests
+- Agent completes a turn (no tool calls) → sends `turn:complete` → server clears agent assignment
+- New session created after agent released → agent picks it up via dispatch
+- Follow-up message sent to a session whose agent was released → session re-dispatched, agent receives full history
+- Multiple sequential sessions served by a single agent without restart
+
 ### Token Counting Tests
 - Verify `estimateTokens` returns reasonable values
 - Verify token counts are populated when messages are persisted
