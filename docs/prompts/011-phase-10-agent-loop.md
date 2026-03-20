@@ -97,8 +97,6 @@ Build the system prompt per-call. `maxTokens` comes from `LLM_MAX_TOKENS` env va
 
 ```typescript
 export function buildSystemPrompt(state: {
-  workingDir: string;
-  clonedRepos: string[];
   usedTokens: number;
   maxTokens: number; // from Number(process.env.LLM_MAX_TOKENS) || 128000
 }): string {
@@ -109,14 +107,12 @@ export function buildSystemPrompt(state: {
 
   return `You are a coding agent working in a sandboxed container. You have access to tools for reading and writing files, running shell commands, managing your context window, and asking the user questions.
 
-When you need to explore code, use read_file or bash. When you need to make changes, use write_file. For general-purpose tasks (git, installing packages, running tests), use bash.
+When you need to explore code, use read_file or bash. When you need to make changes, use write_file. For general-purpose tasks (git, installing packages, running tests), use bash. Your workspace starts at /workspace — use pwd or ls to orient yourself.
 
 When you are uncertain about the user's intent, requirements, or preferences, use ask_human to ask them rather than guessing.
 
 Manage your context proactively. When you've gathered information from files, consider summarizing old messages to free up space. Use the context tool to check your budget and manage message states.
 
-Working directory: ${state.workingDir}
-Cloned repos: ${state.clonedRepos.length > 0 ? state.clonedRepos.join(", ") : "none yet"}
 Context: ~${state.usedTokens.toLocaleString()} / ${state.maxTokens.toLocaleString()} tokens (${pct}%)${warning}
 
 Reminders:
@@ -200,11 +196,9 @@ function toSdkMessages(messages: Message[]): CoreMessage[] {
 
 This is the trickiest part — the SDK combines assistant text + tool calls into one message, while we store them separately. The translation needs to merge adjacent assistant + tool_call messages.
 
-### Workspace state tracking
+### Workspace state
 
-Track workspace state in the AgentConnection:
-- `workingDir: string` — starts as `/workspace`, updated if bash changes directory
-- `clonedRepos: string[]` — track git clone commands in bash results
+No workspace state tracking needed. The agent starts in `/workspace` and can use `pwd` or `ls` via bash to orient itself. Each bash invocation is independent (no persistent shell state), so the agent should use absolute paths or cd within a single command.
 
 ## Handle new ServerToAgent messages
 
@@ -220,7 +214,7 @@ In `handleMessage`, add cases for:
 2. Start Postgres + server + agent
 3. Create a session, send "What files are in the current directory?"
 4. Agent should call `bash` with `ls` → approval prompt appears in server logs (no UI yet)
-5. Simulate approval via curl (`POST /api/tools/:callId/approve`)
+5. Simulate approval via curl (`POST /api/tools/:toolCallId/approve`)
 6. Agent executes, sends result, LLM continues with response
 7. Test `read_file` — should execute without approval
 8. Test that the agent handles rejection (LLM told the tool was rejected)

@@ -140,8 +140,6 @@ managing your context window, and asking the user questions.
 [... guidance on when to ask vs act, how to manage context ...]
 
 [Dynamic state]
-Working directory: /workspace
-Cloned repos: [list or "none yet"]
 Context: ~45,000 / 128,000 tokens (35%)
 
 [Behavioral reinforcement]
