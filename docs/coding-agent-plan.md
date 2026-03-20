@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS summaries (
   content     TEXT NOT NULL,
   token_count INTEGER,
   created_by  TEXT NOT NULL CHECK (created_by IN ('agent', 'user')),
+  position_at TIMESTAMPTZ NOT NULL,  -- earliest message's created_at; determines ordering in transcript
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -68,26 +69,40 @@ CREATE TABLE IF NOT EXISTS summary_messages (
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/tools/:callId/approve | Approve a pending tool call |
-| POST | /api/tools/:callId/reject | Reject a pending tool call |
-| POST | /api/tools/:callId/respond | Respond to ask_human (body: { response }) |
+| POST | /api/tools/:toolCallId/approve | Approve a pending tool call (lookup by toolCallId) |
+| POST | /api/tools/:toolCallId/reject | Reject a pending tool call (lookup by toolCallId) |
+| POST | /api/tools/:toolCallId/respond | Respond to ask_human (body: { response }, lookup by toolCallId) |
 | POST | /api/sessions/:id/summaries | Create a summary (body: { content, messageIds, createdBy }) |
+| DELETE | /api/summaries/:id | Restore from summary (delete summary, set messages back to active) |
 | PATCH | /api/messages/:id/context-status | Set context_status (body: { status }) |
 | GET | /api/sessions/:id/context | Get context status (token counts, message states) |
+
+**Canonical tool call identifier:** All tool-related API routes use `toolCallId` (agent-generated) as the external identifier, not the message row `id`. The server indexes messages by `toolCallId` for lookups.
 
 ## New WebSocket Message Types
 
 **Agent → Server:**
-- `tool:approval:request` — tool call needing human approval (toolName, args, toolCallId)
+- `tool:approval:request` — tool call needing human approval (toolName, args, toolCallId). Server persists as a tool_call message with `approvalStatus: 'pending'`.
 
 **Server → Agent:**
 - `tool:approval:response` — approved/rejected (toolCallId, approved, response text for ask_human)
-- `context:updated` — user changed context status from UI
+- `context:updated` — message status changed (drop/activate from UI)
+- `summary:created` — a new summary was created (carries full summary object)
 
 **Server → UI:**
 - `tool:approval:request` — relay for UI rendering
-- `context:updated` — message status changed
+- `context:updated` — message status changed (drop/activate)
+- `summary:created` — a new summary was created (carries full summary object with content, ID, messageIds)
+- `summary:deleted` — a summary was restored/deleted (carries summaryId and restored messageIds)
 - `context:status` — token counts for context gauge
+
+## Tool Call Persistence Paths
+
+Each tool call follows exactly one persistence path based on the safety check result. No tool call is persisted twice.
+
+- **`execute` path** (safe tools: read_file, context): Agent executes locally → sends `tool:call` to server → server persists tool_call message → agent sends `tool:result` → server persists tool_result message.
+- **`approve` path** (bash, write_file): Agent sends `tool:approval:request` → server persists tool_call message with `approvalStatus: 'pending'` → user approves/rejects → server sends `tool:approval:response` → if approved, agent executes and sends `tool:result` → server persists tool_result message.
+- **`ask_human` path**: Same as `approve` but the user provides text instead of approve/reject → server sends `tool:approval:response` with response text → agent sends `tool:result` containing the human's answer.
 
 ## Agent Loop
 
@@ -101,11 +116,15 @@ while true:
   stream thinking + text tokens to server
   if no tool calls → add assistant message, done
   for each tool call:
-    check safety (assessToolCall)
-    if safe → execute locally, add tool_call + tool_result messages
-    if needs approval → send tool:approval:request, wait for response
-      if approved → execute, add messages
-      if rejected → add rejection as tool_result, continue loop
+    generate toolCallId via crypto.randomUUID()
+    check safety (assessToolCall) → returns { action: "execute" | "approve" | "ask_human" }
+    if execute → run locally, send tool:call + tool:result to server
+    if approve → send tool:approval:request, wait for tool:approval:response
+      if approved → execute, send tool:result to server
+      if rejected → send tool:result with rejection to server
+    if ask_human → send tool:approval:request, wait for response text
+      send tool:result with human's answer to server
+    add tool_call + tool_result to local messageHistory
   continue loop
 ```
 
@@ -194,6 +213,10 @@ Three-way classification: `execute` (safe tools — run immediately), `approve` 
 **Max tokens:** Configured via `LLM_MAX_TOKENS` env var (default: 128000). Used for the context gauge and system prompt budget. Not a hard limit — just informational for the agent and UI.
 
 **Session response includes summaries:** The existing `GET /api/sessions/:id` endpoint returns messages and summaries together, so the UI can render summarized messages without a separate fetch.
+
+**Summary ordering:** Summaries have a `position_at` timestamp set to the `created_at` of the earliest message they replace. When assembling a transcript (for the LLM or UI), summaries are interleaved with active messages by comparing `position_at` (summaries) and `created_at` (messages). Summarized messages are excluded; the summary appears at the position of the first message in its group.
+
+**Summary lifecycle via WebSocket:** When a summary is created, the server broadcasts `summary:created` (with full summary object) to both agent and UI. When a summary is deleted/restored, the server broadcasts `summary:deleted` (with summaryId and restored messageIds). This ensures live clients can update without refetching.
 
 ## Docker Changes
 

@@ -8,23 +8,24 @@ Add server-side support for tool approval, context management, and the new WebSo
 
 ## New REST Endpoints (packages/server/src/routes/sessions.ts or new routes file)
 
-### POST /api/tools/:callId/approve
-- Find the tool_call message by ID
+### POST /api/tools/:toolCallId/approve
+- Find the tool_call message by `toolCallId` (not message row ID)
 - Verify it has `approvalStatus = 'pending'`
 - Update `approvalStatus` to `'approved'`
 - Send `tool:approval:response` to the agent via WebSocket (approved: true)
 - Broadcast update to UI
 - Return 200
 
-### POST /api/tools/:callId/reject
+### POST /api/tools/:toolCallId/reject
 - Same as approve but sets `approvalStatus = 'rejected'`
 - Send `tool:approval:response` to the agent (approved: false)
 - Broadcast update to UI
 - Return 200
 
-### POST /api/tools/:callId/respond
+### POST /api/tools/:toolCallId/respond
 - For `ask_human` tool calls
 - Body: `{ response: string }`
+- Find tool_call message by `toolCallId`
 - Update `approvalStatus` to `'approved'`
 - Send `tool:approval:response` to agent with the response text
 - Broadcast update to UI
@@ -34,10 +35,18 @@ Add server-side support for tool approval, context management, and the new WebSo
 - Body: `{ content: string, messageIds: string[], createdBy: "agent" | "user" }`
 - Validate Rule 2: all target messages must have `contextStatus = 'active'`
 - Validate Rule 1: no target message already belongs to a summary
+- Set `position_at` to the earliest `created_at` among the target messages
 - Create summary row + summary_messages join table entries
 - Set all target messages to `contextStatus = 'summarized'`
-- Broadcast `context:updated` to both agent and UI
+- Broadcast `summary:created` (with full summary object) to both agent and UI
 - Return 201 with the created summary
+
+### DELETE /api/summaries/:id
+- Find the summary and its associated messages via the join table
+- Set all associated messages back to `contextStatus = 'active'`
+- Delete the summary_messages entries and summary row
+- Broadcast `summary:deleted` (with summaryId and restored messageIds) to both agent and UI
+- Return 200
 
 ### PATCH /api/messages/:id/context-status
 - Body: `{ status: "active" | "inactive" }`
@@ -52,25 +61,27 @@ Add server-side support for tool approval, context management, and the new WebSo
 
 ## WebSocket Handler Updates (packages/server/src/ws/agent-ws.ts)
 
-Handle new agent → server message types:
+Handle new agent → server message types. Each tool call follows exactly ONE persistence path — either `tool:call` (safe, already executed) or `tool:approval:request` (needs approval). Never both.
+
+### tool:call (update existing placeholder)
+- Persist tool call message with agent-provided ID and toolCallId (no approval — agent already executed it)
+- Broadcast to UI for display
 
 ### tool:approval:request
-- Persist the tool call message with `approvalStatus = 'pending'`
+- Persist the tool call message with `approvalStatus = 'pending'` (this is the only persistence for this tool call)
 - Broadcast `tool:approval:request` to UI WebSocket
 - Do NOT send a response to the agent yet — the agent is waiting
 
-### tool:call (update existing placeholder)
-- Persist tool call message (no approval needed — the agent already executed it)
-- Broadcast to UI for display
-
 ### tool:result (update existing placeholder)
-- Persist tool result message
+- Persist tool result message, linked to its tool_call via toolCallId
 - Broadcast to UI for display
 
 ## WebSocket Broadcasting
 
 Add broadcast helpers:
-- `broadcastContextUpdated(sessionId, messageIds, contextStatus)` — send to both agent and UI
+- `broadcastContextUpdated(sessionId, messageIds, contextStatus)` — send to both agent and UI (for drop/activate)
+- `broadcastSummaryCreated(sessionId, summary)` — send full summary object to both agent and UI
+- `broadcastSummaryDeleted(sessionId, summaryId, restoredMessageIds)` — send to both agent and UI
 - `broadcastContextStatus(sessionId)` — send token counts to UI
 
 ## Token Counting Utility

@@ -138,15 +138,25 @@ Replace the current `runLlmTurn` with a tool loop. The high-level flow:
 5. Stream thinking + text tokens to server (same as current)
 6. When the LLM produces tool calls:
    a. For each tool call, generate a UUID via `crypto.randomUUID()` as the toolCallId
-   b. Persist the tool_call as a message (send `tool:call` to server with agent-generated ID)
-   c. Check `assessToolCall` — returns `{ action: "execute" | "approve" | "ask_human" }`
-   d. If `execute` → run locally via tool executor
-   e. If `approve` → send `tool:approval:request`, wait for `tool:approval:response`
-   f. If `ask_human` → send `tool:approval:request`, wait for response text
-   g. Persist tool result as a message (send `tool:result` to server)
-   h. Add both tool_call and tool_result to local messageHistory
+   b. Check `assessToolCall` — returns `{ action: "execute" | "approve" | "ask_human" }`
+   c. If `execute`:
+      - Execute locally via tool executor
+      - Send `tool:call` to server (server persists the tool_call message)
+      - Send `tool:result` to server (server persists the tool_result message)
+   d. If `approve`:
+      - Send `tool:approval:request` to server (server persists as tool_call with pending status)
+      - Wait for `tool:approval:response`
+      - If approved → execute locally, send `tool:result` to server
+      - If rejected → send `tool:result` with rejection message to server
+   e. If `ask_human`:
+      - Send `tool:approval:request` to server (server persists as tool_call with pending status)
+      - Wait for `tool:approval:response` (which includes the user's text)
+      - Send `tool:result` with the human's answer to server
+   f. Add both tool_call and tool_result to local messageHistory
 7. If the LLM produced tool calls, loop back to step 1
 8. If the LLM produced only text (no tool calls), add the assistant message and we're done
+
+**Important:** Each tool call follows exactly one persistence path. Safe tools send `tool:call` (already executed). Approval-needed tools send `tool:approval:request` (not yet executed). Never both for the same tool call.
 
 ### Waiting for approval
 
@@ -200,7 +210,9 @@ Track workspace state in the AgentConnection:
 
 In `handleMessage`, add cases for:
 - `tool:approval:response` — resolve the pending approval promise
-- `context:updated` — update local messageHistory to reflect context changes made from the UI
+- `context:updated` — update local messageHistory to reflect context status changes made from the UI (drop/activate)
+- `summary:created` — update local messageHistory to mark summarized messages, store the summary for context assembly
+- `summary:deleted` — restore messages to active, remove the summary from local state
 
 ## Verification
 

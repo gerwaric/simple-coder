@@ -68,6 +68,7 @@ export interface Summary {
   tokenCount: number | null;
   createdBy: "agent" | "user";
   messageIds: string[];
+  positionAt: string;  // earliest message's createdAt — determines transcript ordering
   createdAt: string;
 }
 ```
@@ -100,6 +101,19 @@ export interface ContextUpdated {
   messageIds: string[];
   contextStatus: ContextStatus;
 }
+
+export interface SummaryCreated {
+  type: "summary:created";
+  sessionId: string;
+  summary: Summary; // Full summary object including id, content, messageIds, positionAt
+}
+
+export interface SummaryDeleted {
+  type: "summary:deleted";
+  sessionId: string;
+  summaryId: string;
+  restoredMessageIds: string[];
+}
 ```
 
 Add new Server → UI messages:
@@ -117,6 +131,19 @@ export interface UIContextUpdated {
   sessionId: string;
   messageIds: string[];
   contextStatus: ContextStatus;
+}
+
+export interface UISummaryCreated {
+  type: "summary:created";
+  sessionId: string;
+  summary: Summary;
+}
+
+export interface UISummaryDeleted {
+  type: "summary:deleted";
+  sessionId: string;
+  summaryId: string;
+  restoredMessageIds: string[];
 }
 
 export interface UIContextStatus {
@@ -152,14 +179,15 @@ Update the union types (AgentToServer, ServerToAgent, ServerToUI) to include the
 
 Update the messages table — since we don't have a migration framework, update the CREATE TABLE statement to include all new columns. Also update the role CHECK constraint.
 
-Add the summaries and summary_messages tables as specified in the coding-agent-plan.md.
+Add the summaries and summary_messages tables as specified in the coding-agent-plan.md. Note that summaries includes a `position_at` column (set to the earliest message's `created_at`) for transcript ordering.
 
 ## Database Queries (packages/server/src/db/queries.ts)
 
 Update existing query functions to handle the new message columns. Add new query functions:
 - `getActiveMessages(sessionId)` — returns messages with contextStatus='active', plus summaries for summarized messages
 - `updateContextStatus(messageId, status)` — update a message's contextStatus
-- `createSummary(sessionId, content, createdBy, messageIds)` — create summary + join table entries, set messages to 'summarized'
+- `createSummary(sessionId, content, createdBy, messageIds)` — create summary (with position_at from earliest message) + join table entries, set messages to 'summarized'
+- `getMessageByToolCallId(toolCallId)` — fetch a message by toolCallId (for approval lookups)
 - `deleteSummary(summaryId)` — delete summary, set messages back to 'active'
 - `getContextStatus(sessionId)` — return token counts and message states
 - `updateApprovalStatus(messageId, status)` — update approval status

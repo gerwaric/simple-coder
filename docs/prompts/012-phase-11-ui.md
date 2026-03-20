@@ -27,14 +27,14 @@ Update the React UI to render tool calls, tool results, approval prompts, ask_hu
 ### ApprovalPrompt
 - Shown when a tool_call message has `approvalStatus: "pending"`
 - For `bash` and `write_file`: show "Approve" and "Reject" buttons
-- On approve: `POST /api/tools/:callId/approve`
-- On reject: `POST /api/tools/:callId/reject`
+- On approve: `POST /api/tools/:toolCallId/approve` (use the message's `toolCallId` field, not `id`)
+- On reject: `POST /api/tools/:toolCallId/reject`
 - After response: buttons disabled, show the outcome (approved/rejected)
 
 ### AskHumanPrompt
 - Shown when `ask_human` tool call has `approvalStatus: "pending"`
 - Show the question with a text input field and "Send" button
-- On submit: `POST /api/tools/:callId/respond` with the response text
+- On submit: `POST /api/tools/:toolCallId/respond` with the response text
 - After response: input disabled, show what was sent
 
 ## Context Gauge
@@ -52,16 +52,19 @@ Context: 45k / 128k tokens (35%)
 Each message gets a small control for context status:
 - **Active messages:** Show a "drop" button/icon (e.g., an X or eye-slash)
 - **Inactive messages:** Render grayed out / collapsed with a "restore" button
-- **Summarized messages:** Show the summary text with an indicator like "(summary of 3 messages)" and a "restore" button
+- **Summarized messages:** Show the summary text with an indicator like "(summary of 3 messages)" and a "restore" button. The restore action uses the summary ID, not individual message IDs.
 
 On drop: `PATCH /api/messages/:id/context-status` with `{ status: "inactive" }`
-On restore: `PATCH /api/messages/:id/context-status` with `{ status: "active" }`
+On restore (inactive): `PATCH /api/messages/:id/context-status` with `{ status: "active" }`
+On restore (summarized): `DELETE /api/summaries/:summaryId` — server restores all messages and deletes the summary
 
 ## WebSocket Handler Updates (packages/ui/src/hooks/useWebSocket.ts)
 
 Handle new message types:
 - `tool:approval:request` — add the tool call message to the session's message list with pending approval status
-- `context:updated` — update the contextStatus of affected messages in state
+- `context:updated` — update the contextStatus of affected messages in state (for drop/activate)
+- `summary:created` — add the summary to local state, update affected messages to 'summarized' status. The summary's `positionAt` field determines where it appears in the transcript.
+- `summary:deleted` — remove the summary from local state, update restored messages back to 'active'
 - `context:status` — update the context gauge display
 
 ## Message List Updates
@@ -69,16 +72,18 @@ Handle new message types:
 The existing message list component needs to:
 - Render the new message roles using the appropriate component (ToolCallMessage, ToolResultMessage)
 - Show ApprovalPrompt or AskHumanPrompt when a tool_call has pending approval
-- Apply visual styling based on contextStatus (grayed out for inactive, summary indicator for summarized)
+- Apply visual styling based on contextStatus (grayed out for inactive)
+- **Interleave summaries with messages:** Build the display list by merging active messages (sorted by `createdAt`) with summaries (sorted by `positionAt`). Summarized messages are excluded from the display — the summary replaces them at the position of the earliest message in its group.
 - Show tokenCount per message if available (subtle, e.g., small text)
 
 ## API Helpers (packages/ui/src/api.ts)
 
 Add functions:
-- `approveToolCall(callId: string)` → POST /api/tools/:callId/approve
-- `rejectToolCall(callId: string)` → POST /api/tools/:callId/reject
-- `respondToToolCall(callId: string, response: string)` → POST /api/tools/:callId/respond
+- `approveToolCall(toolCallId: string)` → POST /api/tools/:toolCallId/approve
+- `rejectToolCall(toolCallId: string)` → POST /api/tools/:toolCallId/reject
+- `respondToToolCall(toolCallId: string, response: string)` → POST /api/tools/:toolCallId/respond
 - `setContextStatus(messageId: string, status: string)` → PATCH /api/messages/:id/context-status
+- `deleteSummary(summaryId: string)` → DELETE /api/summaries/:summaryId
 
 ## Verification
 
