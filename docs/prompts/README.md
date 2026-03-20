@@ -12,3 +12,14 @@ Per-phase prompts for executing the implementation plan. Each prompt is self-con
 | 006 | 5 | [Docker Compose](006-phase-5-docker.md) |
 | 007 | 6 | [Testing](007-phase-6-testing.md) |
 | 008 | 7 | [Polish](008-phase-7-polish.md) |
+
+### Coding Agent Phases
+
+| # | Phase | Prompt |
+|---|-------|--------|
+| 009 | 8 | [Schema + Type Updates](009-phase-8-schema-types.md) |
+| 010 | 9 | [Server API + Protocol](010-phase-9-server-api.md) |
+| 011 | 10 | [Agent Tool Loop](011-phase-10-agent-loop.md) |
+| 012 | 11 | [UI Updates](012-phase-11-ui.md) |
+| 013 | 12 | [Docker + Integration](013-phase-12-docker.md) |
+| 014 | 13 | [Testing + Polish](014-phase-13-testing-polish.md) |

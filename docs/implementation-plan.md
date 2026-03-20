@@ -340,6 +340,10 @@ What follows — both good and trade-offs.
 The goal is a lightly structured transcript, not a summary. Preserve the
 texture of how ideas developed — the ADRs extract the decisions.
 
+## Coding Agent — Phase 2
+
+Phases 8–13 evolve the system from a conversational agent into a coding agent with tools, approval flow, and context management. See [`docs/coding-agent-plan.md`](coding-agent-plan.md) for the full plan, and ADR-010 through ADR-017 for design decisions.
+
 ## Extensibility Notes (for README)
 
 The protocol and database are designed to support the full event model from day one:

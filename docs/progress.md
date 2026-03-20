@@ -27,6 +27,25 @@
 | Initial planning session docs | ~~Completed~~ | d4f2534 |
 | Prompts and progress tracking | ~~Completed~~ | |
 
+## Coding Agent Phases
+
+| Phase | Description | Status | Commit |
+|-------|-------------|--------|--------|
+| 8 | Schema + Type Updates | Not started | |
+| 9 | Server API + Protocol | Not started | |
+| 10 | Agent Tool Loop | Not started | |
+| 11 | UI Updates | Not started | |
+| 12 | Docker + Integration | Not started | |
+| 13 | Testing + Polish | Not started | |
+
+## Coding Agent Pre-Implementation
+
+| Task | Status | Commit |
+|------|--------|--------|
+| Design brainstorm (Conversation 002) | ~~Completed~~ | |
+| ADRs 010–017 | ~~Completed~~ | |
+| Coding agent plan + phased prompts | ~~Completed~~ | |
+
 ## Notes
 
 Updated after each phase completion. Read this file at the start of any new session to understand current state.
