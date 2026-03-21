@@ -1,5 +1,6 @@
 import type { Message } from "@simple-coder/shared";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { ToolCallMessage } from "./ToolCallMessage";
 import { ToolResultMessage } from "./ToolResultMessage";
 import * as api from "../api";
@@ -139,7 +140,13 @@ export function MessageBubble({
                   )}
                 </div>
               )}
-              <div style={{ whiteSpace: "pre-wrap" }}>{message.content}</div>
+              {isUser ? (
+                <div style={{ whiteSpace: "pre-wrap" }}>{message.content}</div>
+              ) : (
+                <div className="markdown-content">
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                </div>
+              )}
             </>
           )}
 
@@ -149,11 +156,11 @@ export function MessageBubble({
               style={{
                 marginTop: 4,
                 fontSize: 10,
-                color: isUser ? "rgba(255,255,255,0.4)" : "#d1d5db",
+                color: isUser ? "rgba(255,255,255,0.4)" : "#9ca3af",
                 textAlign: "right",
               }}
             >
-              {message.tokenCount} tokens
+              ~{message.tokenCount} tokens
             </div>
           )}
         </div>

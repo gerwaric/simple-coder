@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 export function StreamingMessage({
   thinking,
@@ -58,8 +59,8 @@ export function StreamingMessage({
           </div>
         )}
         {content && (
-          <div style={{ whiteSpace: "pre-wrap" }}>
-            {content}
+          <div className="markdown-content">
+            <ReactMarkdown>{content}</ReactMarkdown>
             <span style={{ animation: "blink 1s infinite" }}>|</span>
           </div>
         )}
