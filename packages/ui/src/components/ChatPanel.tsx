@@ -28,8 +28,13 @@ function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayIte
     }
   }
 
-  // Track tool results that have been paired
-  const pairedResultIds = new Set<string>();
+  // Index tool call IDs — used to skip standalone rendering of results that will be paired
+  const toolCallIds = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role === "tool_call" && msg.toolCallId) {
+      toolCallIds.add(msg.toolCallId);
+    }
+  }
 
   // Add non-summarized messages, grouping tool pairs
   for (const msg of messages) {
@@ -39,12 +44,11 @@ function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayIte
       const result = resultsByCallId.get(msg.toolCallId);
       if (result && !summarizedIds.has(result.id) && result.contextStatus !== "summarized") {
         items.push({ kind: "toolPair", call: msg, result });
-        pairedResultIds.add(result.id);
       } else {
         items.push({ kind: "toolPending", call: msg });
       }
-    } else if (msg.role === "tool_result" && pairedResultIds.has(msg.id)) {
-      // Skip — already included in a toolPair
+    } else if (msg.role === "tool_result" && msg.toolCallId && toolCallIds.has(msg.toolCallId)) {
+      // Skip — will be included in a toolPair via its matching tool_call
       continue;
     } else {
       items.push({ kind: "message", message: msg });
@@ -236,7 +240,7 @@ export function ChatPanel({
             borderTop: "1px solid #e5e7eb",
           }}
         >
-          {messages.filter((m) => m.contextStatus === "active").length} messages · {contextGauge.usedTokens.toLocaleString()} / {contextGauge.maxTokens.toLocaleString()} tokens ({gaugePercent}%)
+          {messages.filter((m) => m.contextStatus === "active").length} messages · ~{contextGauge.usedTokens.toLocaleString()} / {contextGauge.maxTokens.toLocaleString()} tokens (~{gaugePercent}%)
         </div>
       )}
       <div style={{ borderTop: "1px solid #e5e7eb", padding: 12 }}>

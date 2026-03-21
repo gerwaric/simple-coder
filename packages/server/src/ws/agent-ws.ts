@@ -53,6 +53,7 @@ export function createAgentWsHandlers(sql: Sql) {
 
     switch (msg.type) {
       case "agent:ready": {
+        clearAgentSession(agentId);
         await dispatchPendingSessions(sql);
         break;
       }
