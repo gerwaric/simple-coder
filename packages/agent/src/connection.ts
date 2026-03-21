@@ -103,17 +103,25 @@ export class AgentConnection {
         this.currentSessionId = msg.session.id;
         this.messageHistory = msg.messages;
         await this.runToolLoop();
-        console.log(`turn complete for session ${this.currentSessionId}`);
-        this.send({ type: "turn:complete", sessionId: msg.session.id });
+        if (this.currentSessionId) {
+          console.log(`turn complete for session ${this.currentSessionId}`);
+          this.send({ type: "turn:complete", sessionId: msg.session.id });
+        }
         break;
       }
 
       case "user:message": {
         console.log(`received user message for session ${msg.message.sessionId}`);
+        if (!this.currentSessionId) {
+          console.log(`ignoring user message — no active session`);
+          break;
+        }
         this.messageHistory.push(msg.message);
         await this.runToolLoop();
-        console.log(`turn complete for session ${this.currentSessionId}`);
-        this.send({ type: "turn:complete", sessionId: msg.message.sessionId });
+        if (this.currentSessionId) {
+          console.log(`turn complete for session ${this.currentSessionId}`);
+          this.send({ type: "turn:complete", sessionId: msg.message.sessionId });
+        }
         break;
       }
 

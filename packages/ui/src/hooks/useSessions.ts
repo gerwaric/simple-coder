@@ -111,9 +111,9 @@ export function useSessions() {
         break;
 
       case "tool:call":
-        // Create a synthetic tool_call message in state
+        // Create a tool_call message in state, using real DB ID if available
         upsertMessage({
-          id: msg.toolCallId,
+          id: msg.messageId || msg.toolCallId,
           sessionId: msg.sessionId,
           role: "tool_call",
           content: "",
@@ -130,7 +130,7 @@ export function useSessions() {
 
       case "tool:result":
         upsertMessage({
-          id: `${msg.toolCallId}-result`,
+          id: msg.messageId || `${msg.toolCallId}-result`,
           sessionId: msg.sessionId,
           role: "tool_result",
           content: typeof msg.result === "string" ? msg.result : JSON.stringify(msg.result, null, 2),
@@ -148,7 +148,7 @@ export function useSessions() {
       case "tool:approval:request":
         // Upsert the tool call message with pending approval
         upsertMessage({
-          id: msg.toolCallId,
+          id: msg.messageId || msg.toolCallId,
           sessionId: msg.sessionId,
           role: "tool_call",
           content: "",
@@ -222,6 +222,11 @@ export function useSessions() {
             maxTokens: msg.maxTokens,
           })
         );
+        break;
+
+      case "session:deleted":
+        setSessions((prev) => prev.filter((s) => s.id !== msg.sessionId));
+        setSelectedSessionId((prev) => prev === msg.sessionId ? null : prev);
         break;
     }
   }, []);

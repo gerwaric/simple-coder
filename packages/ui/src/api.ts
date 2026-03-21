@@ -27,6 +27,19 @@ export async function getSession(
   return res.json();
 }
 
+export async function renameSession(
+  sessionId: string,
+  title: string
+): Promise<{ session: Session }> {
+  const res = await fetch(`/api/sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error(`Failed to rename session: ${res.status}`);
+  return res.json();
+}
+
 export async function sendMessage(
   sessionId: string,
   content: string
@@ -45,6 +58,20 @@ export async function stopSession(sessionId: string): Promise<void> {
     method: "POST",
   });
   if (!res.ok) throw new Error(`Failed to stop session: ${res.status}`);
+}
+
+export async function restartSession(sessionId: string): Promise<void> {
+  const res = await fetch(`/api/sessions/${sessionId}/restart`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to restart session: ${res.status}`);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await fetch(`/api/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete session: ${res.status}`);
 }
 
 export async function approveToolCall(toolCallId: string): Promise<void> {

@@ -90,6 +90,29 @@ export async function listSessions(sql: Sql): Promise<Session[]> {
   return rows.map(toSession);
 }
 
+export async function deleteSession(
+  sql: Sql,
+  id: string,
+): Promise<boolean> {
+  const result = await sql`DELETE FROM sessions WHERE id = ${id}`;
+  return result.count > 0;
+}
+
+export async function updateSessionTitle(
+  sql: Sql,
+  id: string,
+  title: string,
+): Promise<Session | null> {
+  const [row] = await sql<SessionRow[]>`
+    UPDATE sessions
+    SET title = ${title},
+        updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return row ? toSession(row) : null;
+}
+
 export async function updateSessionState(
   sql: Sql,
   id: string,

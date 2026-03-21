@@ -100,7 +100,7 @@ export function createAgentWsHandlers(sql: Sql) {
       }
 
       case "tool:call": {
-        await createMessage(
+        const toolCallMsg = await createMessage(
           sql,
           msg.sessionId,
           MessageRole.ToolCall,
@@ -118,12 +118,13 @@ export function createAgentWsHandlers(sql: Sql) {
           toolCallId: msg.toolCallId,
           toolName: msg.toolName,
           args: msg.args,
+          messageId: toolCallMsg.id,
         });
         break;
       }
 
       case "tool:result": {
-        await createMessage(
+        const toolResultMsg = await createMessage(
           sql,
           msg.sessionId,
           MessageRole.ToolResult,
@@ -140,6 +141,7 @@ export function createAgentWsHandlers(sql: Sql) {
           toolCallId: msg.toolCallId,
           toolName: msg.toolName,
           result: msg.result,
+          messageId: toolResultMsg.id,
         });
         break;
       }
@@ -151,7 +153,7 @@ export function createAgentWsHandlers(sql: Sql) {
       }
 
       case "tool:approval:request": {
-        await createMessage(
+        const approvalMsg = await createMessage(
           sql,
           msg.sessionId,
           MessageRole.ToolCall,
@@ -170,6 +172,7 @@ export function createAgentWsHandlers(sql: Sql) {
           toolCallId: msg.toolCallId,
           toolName: msg.toolName,
           args: msg.args,
+          messageId: approvalMsg.id,
         });
         break;
       }

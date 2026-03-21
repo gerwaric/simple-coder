@@ -176,6 +176,7 @@ export interface UIToolCall {
   toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
+  messageId?: string;
 }
 
 export interface UIToolResult {
@@ -184,6 +185,7 @@ export interface UIToolResult {
   toolCallId: string;
   toolName: string;
   result: unknown;
+  messageId?: string;
 }
 
 export interface UIToolApprovalRequest {
@@ -192,6 +194,7 @@ export interface UIToolApprovalRequest {
   toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
+  messageId?: string;
 }
 
 export interface UIContextUpdated {
@@ -221,8 +224,14 @@ export interface UIContextStatus {
   maxTokens: number;
 }
 
+export interface SessionDeleted {
+  type: "session:deleted";
+  sessionId: string;
+}
+
 export type ServerToUI =
   | SessionUpdated
+  | SessionDeleted
   | MessageCreated
   | ThinkingStream
   | TokenStream

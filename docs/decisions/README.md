@@ -22,3 +22,8 @@
 | 018 | [Sub-Phase Implementation Tracks](018-sub-phase-tracks.md) | Accepted | 2026-03-20 | [Conv 003](../conversations/003-coding-agent-implementation.md) |
 | 019 | [Turn-Complete Idle Signaling](019-turn-complete-idle-signaling.md) | Accepted | 2026-03-20 | [Conv 004](../conversations/004-debugging-ui-and-agent-lifecycle.md) |
 | 020 | [Bug Documentation Strategy](020-bug-documentation-strategy.md) | Accepted | 2026-03-20 | [Conv 004](../conversations/004-debugging-ui-and-agent-lifecycle.md) |
+| 021 | [Context Bar UI for Message Management](021-context-bar-ui.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
+| 022 | [Tool Call Pairing in UI](022-tool-call-pairing.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
+| 023 | [Session Lifecycle Operations from Sidebar](023-session-lifecycle-sidebar.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
+| 024 | [Agent Container Sandboxing](024-agent-container-sandboxing.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
+| 025 | [Real Database IDs for Tool Messages](025-real-ids-for-tool-messages.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |

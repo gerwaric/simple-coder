@@ -36,6 +36,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.agent
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - agenthome:/home/agent
+      - workspace:/workspace
     environment:
       SERVER_WS_URL: ws://server:3000/ws/agent
       AGENT_SECRET: ${AGENT_SECRET:-change-me}
@@ -51,3 +57,5 @@ services:
 
 volumes:
   pgdata:
+  workspace:
+  agenthome:

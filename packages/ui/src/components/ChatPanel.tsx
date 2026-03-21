@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { Message, Session, Summary } from "@simple-coder/shared";
 import { MessageBubble } from "./MessageBubble";
+import { ToolPairBubble } from "./ToolPairBubble";
 import { StreamingMessage } from "./StreamingMessage";
 import * as api from "../api";
 
@@ -11,16 +12,43 @@ interface ContextGauge {
 
 type DisplayItem =
   | { kind: "message"; message: Message }
-  | { kind: "summary"; summary: Summary };
+  | { kind: "summary"; summary: Summary }
+  | { kind: "toolPair"; call: Message; result: Message }
+  | { kind: "toolPending"; call: Message };
 
 function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayItem[] {
   const summarizedIds = new Set(summaries.flatMap((s) => s.messageIds));
   const items: DisplayItem[] = [];
 
-  // Add non-summarized messages
+  // Index tool results by toolCallId for pairing
+  const resultsByCallId = new Map<string, Message>();
+  for (const msg of messages) {
+    if (msg.role === "tool_result" && msg.toolCallId) {
+      resultsByCallId.set(msg.toolCallId, msg);
+    }
+  }
+
+  // Track tool results that have been paired
+  const pairedResultIds = new Set<string>();
+
+  // Add non-summarized messages, grouping tool pairs
   for (const msg of messages) {
     if (msg.contextStatus === "summarized" || summarizedIds.has(msg.id)) continue;
-    items.push({ kind: "message", message: msg });
+
+    if (msg.role === "tool_call" && msg.toolCallId) {
+      const result = resultsByCallId.get(msg.toolCallId);
+      if (result && !summarizedIds.has(result.id) && result.contextStatus !== "summarized") {
+        items.push({ kind: "toolPair", call: msg, result });
+        pairedResultIds.add(result.id);
+      } else {
+        items.push({ kind: "toolPending", call: msg });
+      }
+    } else if (msg.role === "tool_result" && pairedResultIds.has(msg.id)) {
+      // Skip — already included in a toolPair
+      continue;
+    } else {
+      items.push({ kind: "message", message: msg });
+    }
   }
 
   // Add summaries
@@ -30,8 +58,20 @@ function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayIte
 
   // Sort by timestamp
   items.sort((a, b) => {
-    const aTime = a.kind === "message" ? a.message.createdAt : a.summary.positionAt;
-    const bTime = b.kind === "message" ? b.message.createdAt : b.summary.positionAt;
+    const aTime = a.kind === "message"
+      ? a.message.createdAt
+      : a.kind === "summary"
+        ? a.summary.positionAt
+        : a.kind === "toolPair"
+          ? a.call.createdAt
+          : a.call.createdAt;
+    const bTime = b.kind === "message"
+      ? b.message.createdAt
+      : b.kind === "summary"
+        ? b.summary.positionAt
+        : b.kind === "toolPair"
+          ? b.call.createdAt
+          : b.call.createdAt;
     return aTime.localeCompare(bTime);
   });
 
@@ -61,9 +101,15 @@ export function ChatPanel({
 }) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevMessageCount = useRef(0);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const newCount = messages.length;
+    const hasNewMessages = newCount > prevMessageCount.current;
+    prevMessageCount.current = newCount;
+    if (hasNewMessages || streamingThinking || streamingContent) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, streamingThinking, streamingContent]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,7 +126,8 @@ export function ChatPanel({
   };
 
   const isActive = session?.state === "active";
-  const canSend = !session || isActive;
+  const isPending = session?.state === "pending";
+  const canSend = !session || isActive || isPending;
 
   const displayItems = buildDisplayList(messages, summaries);
 
@@ -100,22 +147,6 @@ export function ChatPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Context gauge */}
-      {contextGauge && gaugePercent != null && (
-        <div
-          style={{
-            padding: "4px 16px",
-            fontSize: 12,
-            color: gaugeWarning ? "#b45309" : "#6b7280",
-            fontWeight: gaugeWarning ? 600 : 400,
-            backgroundColor: gaugeWarning ? "#fef3c7" : "#fafafa",
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          Context: {Math.round(contextGauge.usedTokens / 1000)}k / {Math.round(contextGauge.maxTokens / 1000)}k tokens ({gaugePercent}%)
-        </div>
-      )}
-
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
         {!session && messages.length === 0 && (
           <div
@@ -134,6 +165,23 @@ export function ChatPanel({
         {displayItems.map((item) => {
           if (item.kind === "message") {
             return <MessageBubble key={item.message.id} message={item.message} />;
+          }
+          if (item.kind === "toolPair") {
+            return (
+              <ToolPairBubble
+                key={item.call.id}
+                call={item.call}
+                result={item.result}
+              />
+            );
+          }
+          if (item.kind === "toolPending") {
+            return (
+              <ToolPairBubble
+                key={item.call.id}
+                call={item.call}
+              />
+            );
           }
           // Summary card
           const s = item.summary;
@@ -176,6 +224,21 @@ export function ChatPanel({
         <StreamingMessage thinking={streamingThinking} content={streamingContent} />
         <div ref={bottomRef} />
       </div>
+      {/* Context gauge */}
+      {contextGauge && gaugePercent != null && (
+        <div
+          style={{
+            padding: "4px 16px",
+            fontSize: 12,
+            color: gaugeWarning ? "#b45309" : "#6b7280",
+            fontWeight: gaugeWarning ? 600 : 400,
+            backgroundColor: gaugeWarning ? "#fef3c7" : "#fafafa",
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
+          {messages.filter((m) => m.contextStatus === "active").length} messages · {contextGauge.usedTokens.toLocaleString()} / {contextGauge.maxTokens.toLocaleString()} tokens ({gaugePercent}%)
+        </div>
+      )}
       <div style={{ borderTop: "1px solid #e5e7eb", padding: 12 }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
           <input
