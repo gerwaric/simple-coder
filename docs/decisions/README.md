@@ -33,3 +33,5 @@
 | 029 | [Approval Timeout Policy](029-approval-timeout.md) | Accepted | 2026-03-21 | [Conv 006](../conversations/006-code-audit-and-remediation-planning.md) |
 | 030 | [User-Initiated Summarization](030-user-initiated-summarization.md) | Accepted | 2026-03-22 | [Conv 007](../conversations/007-humanlayer-research-and-context-features.md) |
 | 031 | [CLAUDE.md Prepend to Context](031-claude-md-prepend.md) | Accepted | 2026-03-22 | [Conv 007](../conversations/007-humanlayer-research-and-context-features.md) |
+| 032 | [Workspace Filesystem Viewer](032-workspace-filesystem-viewer.md) | Accepted | 2026-03-22 | [Conv 008](../conversations/008-filesystem-viewer-and-token-budget.md) |
+| 033 | [Configurable Token Budget](033-configurable-token-budget.md) | Accepted | 2026-03-22 | [Conv 008](../conversations/008-filesystem-viewer-and-token-budget.md) |
