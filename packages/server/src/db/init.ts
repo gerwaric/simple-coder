@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS sessions (
                CHECK (state IN ('pending', 'active', 'completed', 'stopped')),
   agent_id   TEXT,
   title      TEXT NOT NULL DEFAULT '',
+  include_claude_md BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -8,9 +8,15 @@ import * as api from "../api";
 export function MessageBubble({
   message,
   onContextChange,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   message: Message;
   onContextChange?: () => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [showThinking, setShowThinking] = useState(false);
   const isUser = message.role === "user";
@@ -48,18 +54,34 @@ export function MessageBubble({
         : "#f3f4f6";
   const textColor = isInactive ? "#9ca3af" : isUser ? "#fff" : "#1f2937";
   const borderStyle = isTool ? "1px solid #e5e7eb" : "none";
-  const barColor = isInactive ? "#f97316" : "#22c55e";
+  const barColor = selectable && selected
+    ? "#2563eb"
+    : isInactive
+      ? "#f97316"
+      : "#22c55e";
+
+  const barTitle = selectable
+    ? (selected ? "Deselect" : "Select for summary")
+    : isInactive
+      ? "Restore to context"
+      : "Drop from context";
+
+  const barClick = selectable
+    ? onToggleSelect
+    : isInactive
+      ? handleRestore
+      : handleDrop;
 
   const contextBar = showContextBar ? (
     <button
-      onClick={isInactive ? handleRestore : handleDrop}
-      title={isInactive ? "Restore to context" : "Drop from context"}
+      onClick={barClick}
+      title={barTitle}
       style={{
-        width: 6,
-        minWidth: 6,
+        width: selectable ? 8 : 6,
+        minWidth: selectable ? 8 : 6,
         alignSelf: "stretch",
         backgroundColor: barColor,
-        border: "none",
+        border: selectable && selected ? "2px solid #1d4ed8" : "none",
         borderRadius: 3,
         cursor: "pointer",
         padding: 0,

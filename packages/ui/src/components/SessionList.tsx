@@ -12,11 +12,15 @@ const stateColors: Record<string, string> = {
 export function SessionList({
   sessions,
   selectedId,
+  includeClaudeMd,
+  onToggleClaudeMd,
   onSelect,
   onNew,
 }: {
   sessions: Session[];
   selectedId: string | null;
+  includeClaudeMd: boolean;
+  onToggleClaudeMd: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
 }) {
@@ -230,6 +234,25 @@ export function SessionList({
             No sessions yet
           </div>
         )}
+      </div>
+
+      {/* CLAUDE.md toggle */}
+      <div
+        style={{
+          padding: "10px 16px",
+          borderTop: "1px solid #e5e7eb",
+          fontSize: 13,
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: "#4b5563" }}>
+          <input
+            type="checkbox"
+            checked={includeClaudeMd}
+            onChange={onToggleClaudeMd}
+            style={{ margin: 0 }}
+          />
+          Prepend CLAUDE.md to context if present
+        </label>
       </div>
 
       {/* Delete confirmation dialog */}

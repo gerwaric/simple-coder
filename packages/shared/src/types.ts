@@ -5,6 +5,7 @@ export interface Session {
   state: SessionState;
   agentId: string | null;
   title: string;
+  includeClaudeMd: boolean;
   createdAt: string;
   updatedAt: string;
 }

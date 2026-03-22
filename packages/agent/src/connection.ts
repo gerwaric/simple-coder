@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import type { Message, Summary } from "@simple-coder/shared";
 import type { ServerToAgent, ToolApprovalResponse } from "@simple-coder/shared";
 import { LlmClient } from "./llm.js";
@@ -20,6 +21,7 @@ export class AgentConnection {
   private llm: LlmClient;
   private currentSessionId: string | null = null;
   private messageHistory: Message[] = [];
+  private claudeMdContent: string | null = null;
   private abortController: AbortController | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
@@ -103,6 +105,15 @@ export class AgentConnection {
         console.log(`assigned session ${msg.session.id}`);
         this.currentSessionId = msg.session.id;
         this.messageHistory = msg.messages;
+        this.claudeMdContent = null;
+        if (msg.session.includeClaudeMd) {
+          try {
+            this.claudeMdContent = await readFile("/workspace/CLAUDE.md", "utf-8");
+            console.log("loaded CLAUDE.md into system prompt");
+          } catch {
+            console.log("CLAUDE.md not found in workspace, skipping");
+          }
+        }
         await this.runToolLoop();
         if (this.currentSessionId) {
           console.log(`turn complete for session ${this.currentSessionId}`);
@@ -132,6 +143,7 @@ export class AgentConnection {
         this.abortController = null;
         this.currentSessionId = null;
         this.messageHistory = [];
+        this.claudeMdContent = null;
         // Reject any pending approval promises so runToolLoop can exit cleanly
         for (const [, resolver] of this.approvalResolvers) {
           resolver({ type: "tool:approval:response", toolCallId: "", approved: false });
@@ -190,7 +202,7 @@ export class AgentConnection {
         // Filter to active messages only
         const activeMessages = this.messageHistory.filter((m) => m.contextStatus === "active");
         const usedTokens = activeMessages.reduce((sum, m) => sum + (m.tokenCount ?? 0), 0);
-        const systemPrompt = buildSystemPrompt({ usedTokens, maxTokens: LLM_MAX_TOKENS });
+        const systemPrompt = buildSystemPrompt({ usedTokens, maxTokens: LLM_MAX_TOKENS, claudeMdContent: this.claudeMdContent });
         const sdkMessages = toSdkMessages(activeMessages);
 
         const result = this.llm.streamWithTools({

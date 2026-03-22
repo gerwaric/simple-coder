@@ -1,6 +1,7 @@
 export function buildSystemPrompt(state: {
   usedTokens: number;
   maxTokens: number;
+  claudeMdContent?: string | null;
 }): string {
   const pct = state.maxTokens > 0 ? Math.round((state.usedTokens / state.maxTokens) * 100) : 0;
   const warning =
@@ -8,7 +9,11 @@ export function buildSystemPrompt(state: {
       ? "\nWARNING: Context is above 70%. Summarize or drop old messages before continuing."
       : "";
 
-  return `You are a coding agent working in a sandboxed container. You have access to tools for reading and writing files, running shell commands, managing your context window, and asking the user questions.
+  const claudeMdSection = state.claudeMdContent
+    ? `The following is the project's CLAUDE.md file. Follow these instructions:\n\n${state.claudeMdContent}\n\n---\n\n`
+    : "";
+
+  return `${claudeMdSection}You are a coding agent working in a sandboxed container. You have access to tools for reading and writing files, running shell commands, managing your context window, and asking the user questions.
 
 When you need to explore code, use read_file or bash. When you need to make changes, use write_file. For general-purpose tasks (git, installing packages, running tests), use bash. Your workspace starts at /workspace — use pwd or ls to orient yourself.
 

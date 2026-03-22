@@ -6,6 +6,7 @@ interface SessionRow {
   state: SessionState;
   agent_id: string | null;
   title: string;
+  include_claude_md: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +42,7 @@ function toSession(row: SessionRow): Session {
     state: row.state,
     agentId: row.agent_id,
     title: row.title,
+    includeClaudeMd: row.include_claude_md,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -66,9 +68,10 @@ function toMessage(row: MessageRow): Message {
 export async function createSession(
   sql: Sql,
   title: string,
+  includeClaudeMd = false,
 ): Promise<Session> {
   const [row] = await sql<SessionRow[]>`
-    INSERT INTO sessions (title) VALUES (${title}) RETURNING *
+    INSERT INTO sessions (title, include_claude_md) VALUES (${title}, ${includeClaudeMd}) RETURNING *
   `;
   return toSession(row);
 }
