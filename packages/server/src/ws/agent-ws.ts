@@ -2,14 +2,16 @@ import type { Sql } from "postgres";
 import type { WSContext, WSMessageReceive } from "hono/ws";
 import { SessionState, MessageRole, ApprovalStatus } from "@simple-coder/shared";
 import type { AgentToServer } from "@simple-coder/shared";
-import { createMessage, updateSessionState } from "../db/queries.js";
+import { createMessage, updateSessionState, getContextStatus } from "../db/queries.js";
 import {
   registerAgent,
   removeAgent,
   clearAgentSession,
   broadcastToUi,
+  broadcastContextStatus,
 } from "./connections.js";
 import { dispatchPendingSessions } from "./dispatch.js";
+import { getTokenBudget } from "../settings.js";
 
 const AGENT_SECRET = process.env.AGENT_SECRET || "change-me";
 
@@ -89,6 +91,7 @@ export function createAgentWsHandlers(sql: Sql) {
           msg.thinking,
         );
         broadcastToUi({ type: "message:complete", message });
+        await refreshContextStatus(sql, msg.sessionId);
         break;
       }
 
@@ -121,6 +124,7 @@ export function createAgentWsHandlers(sql: Sql) {
           args: msg.args,
           messageId: toolCallMsg.id,
         });
+        await refreshContextStatus(sql, msg.sessionId);
         break;
       }
 
@@ -144,6 +148,7 @@ export function createAgentWsHandlers(sql: Sql) {
           result: msg.result,
           messageId: toolResultMsg.id,
         });
+        await refreshContextStatus(sql, msg.sessionId);
         break;
       }
 
@@ -175,9 +180,15 @@ export function createAgentWsHandlers(sql: Sql) {
           args: msg.args,
           messageId: approvalMsg.id,
         });
+        await refreshContextStatus(sql, msg.sessionId);
         break;
       }
     }
+  }
+
+  async function refreshContextStatus(sql: Sql, sessionId: string) {
+    const status = await getContextStatus(sql, sessionId);
+    broadcastContextStatus(sessionId, status.usedTokens, getTokenBudget());
   }
 
   async function handleClose(sql: Sql) {
