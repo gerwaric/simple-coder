@@ -240,9 +240,9 @@ export function useSessions() {
 
   const { connected } = useWebSocket(handleWsMessage);
 
-  const createSession = useCallback(async (message: string) => {
+  const createSession = useCallback(async (message: string, includeClaudeMd = false) => {
     try {
-      const { session } = await api.createSession("", message);
+      const { session } = await api.createSession("", message, includeClaudeMd);
       setSelectedSessionId(session.id);
     } catch (err) {
       handleError(err);
@@ -272,6 +272,10 @@ export function useSessions() {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const refreshContextGauge = useCallback((sessionId: string, gauge: { usedTokens: number; maxTokens: number }) => {
+    setContextGauge((prev) => new Map(prev).set(sessionId, gauge));
+  }, []);
+
   const currentGauge = selectedSessionId ? contextGauge.get(selectedSessionId) || null : null;
   const currentSummaries = selectedSessionId ? summaries.get(selectedSessionId) || [] : [];
 
@@ -290,5 +294,6 @@ export function useSessions() {
     createSession,
     sendMessage,
     stopSession,
+    refreshContextGauge,
   };
 }

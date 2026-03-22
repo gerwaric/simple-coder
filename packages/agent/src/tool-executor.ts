@@ -1,15 +1,13 @@
 import { exec } from "node:child_process";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, resolve, relative } from "node:path";
 
 async function resolveWorkspace(): Promise<string> {
-  const dir = process.env.WORKSPACE_DIR || "/workspace";
-  try {
-    await access(dir);
-    return dir;
-  } catch {
-    return process.cwd();
-  }
+  if (process.env.WORKSPACE_DIR) return resolve(process.env.WORKSPACE_DIR);
+  // In Docker, /workspace exists. For local dev, fall back to project-root .workspace/
+  if (existsSync("/workspace")) return "/workspace";
+  return resolve(process.cwd(), "../../.workspace");
 }
 
 let workspaceDir: string | null = null;

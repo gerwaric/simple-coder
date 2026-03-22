@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Message, Session, Summary } from "@simple-coder/shared";
 import { MessageBubble } from "./MessageBubble";
 import { ToolPairBubble } from "./ToolPairBubble";
@@ -92,6 +92,7 @@ export function ChatPanel({
   onSend,
   onStop,
   onCreateSession,
+  onTokenBudgetChange,
 }: {
   session: Session | null;
   messages: Message[];
@@ -102,8 +103,13 @@ export function ChatPanel({
   onSend: (content: string) => void;
   onStop: () => void;
   onCreateSession: (message: string) => void;
+  onTokenBudgetChange?: (budget: number) => void;
 }) {
   const [input, setInput] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [summaryInput, setSummaryInput] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessageCount = useRef(0);
 
@@ -141,11 +147,69 @@ export function ChatPanel({
     : null;
   const gaugeWarning = gaugePercent != null && gaugePercent > 70;
 
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
+  const budgetInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditingBudget = () => {
+    if (!contextGauge) return;
+    setBudgetInput(String(contextGauge.maxTokens));
+    setEditingBudget(true);
+    setTimeout(() => budgetInputRef.current?.select(), 0);
+  };
+
+  const commitBudget = useCallback(() => {
+    setEditingBudget((wasEditing) => {
+      if (!wasEditing) return false;
+      // Read the input value from the ref directly to avoid stale closures
+      const raw = budgetInputRef.current?.value;
+      if (raw) {
+        const val = parseInt(raw, 10);
+        if (!isNaN(val) && val >= 1000 && onTokenBudgetChange) {
+          onTokenBudgetChange(val);
+        }
+      }
+      return false;
+    });
+  }, [onTokenBudgetChange]);
+
+  const cancelBudget = useCallback(() => {
+    setEditingBudget(false);
+  }, []);
+
   const handleDeleteSummary = async (summaryId: string) => {
     try {
       await api.deleteSummary(summaryId);
     } catch (err) {
       console.error("Failed to delete summary:", err);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const cancelSelection = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setSummaryInput(null);
+  };
+
+  const handleSummarize = async () => {
+    if (!session || !summaryInput?.trim() || selectedIds.size === 0) return;
+    setSummarizing(true);
+    try {
+      await api.createSummary(session.id, summaryInput.trim(), Array.from(selectedIds));
+      cancelSelection();
+    } catch (err) {
+      console.error("Failed to create summary:", err);
+    } finally {
+      setSummarizing(false);
     }
   };
 
@@ -168,7 +232,16 @@ export function ChatPanel({
         )}
         {displayItems.map((item) => {
           if (item.kind === "message") {
-            return <MessageBubble key={item.message.id} message={item.message} />;
+            const isSelectable = selectMode && item.message.contextStatus === "active";
+            return (
+              <MessageBubble
+                key={item.message.id}
+                message={item.message}
+                selectable={isSelectable}
+                selected={selectedIds.has(item.message.id)}
+                onToggleSelect={() => toggleSelect(item.message.id)}
+              />
+            );
           }
           if (item.kind === "toolPair") {
             return (
@@ -228,6 +301,103 @@ export function ChatPanel({
         <StreamingMessage thinking={streamingThinking} content={streamingContent} />
         <div ref={bottomRef} />
       </div>
+      {/* Selection action bar */}
+      {selectMode && (
+        <div
+          style={{
+            padding: "6px 16px",
+            fontSize: 12,
+            backgroundColor: "#eff6ff",
+            borderTop: "1px solid #bfdbfe",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {summaryInput == null ? (
+            <>
+              <span style={{ color: "#1e40af", flex: 1 }}>
+                {selectedIds.size} message{selectedIds.size !== 1 ? "s" : ""} selected
+              </span>
+              <button
+                onClick={() => setSummaryInput("")}
+                disabled={selectedIds.size === 0}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  backgroundColor: selectedIds.size > 0 ? "#2563eb" : "#9ca3af",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: selectedIds.size > 0 ? "pointer" : "default",
+                }}
+              >
+                Summarize
+              </button>
+              <button
+                onClick={cancelSelection}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  backgroundColor: "transparent",
+                  color: "#6b7280",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                autoFocus
+                value={summaryInput}
+                onChange={(e) => setSummaryInput(e.target.value)}
+                placeholder="Write a summary of the selected messages..."
+                style={{
+                  flex: 1,
+                  padding: "4px 8px",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: 4,
+                  fontSize: 12,
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleSummarize}
+                disabled={!summaryInput?.trim() || summarizing}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  backgroundColor: summaryInput?.trim() ? "#2563eb" : "#9ca3af",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: summaryInput?.trim() ? "pointer" : "default",
+                }}
+              >
+                {summarizing ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => setSummaryInput(null)}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  backgroundColor: "transparent",
+                  color: "#6b7280",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {/* Context gauge */}
       {contextGauge && gaugePercent != null && (
         <div
@@ -238,9 +408,66 @@ export function ChatPanel({
             fontWeight: gaugeWarning ? 600 : 400,
             backgroundColor: gaugeWarning ? "#fef3c7" : "#fafafa",
             borderTop: "1px solid #e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {messages.filter((m) => m.contextStatus === "active").length} messages · ~{contextGauge.usedTokens.toLocaleString()} / {contextGauge.maxTokens.toLocaleString()} tokens (~{gaugePercent}%)
+          <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
+            {messages.filter((m) => m.contextStatus === "active").length} messages · ~{contextGauge.usedTokens.toLocaleString()} /{" "}
+            {editingBudget ? (
+              <input
+                ref={budgetInputRef}
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                onBlur={commitBudget}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitBudget(); } if (e.key === "Escape") { e.preventDefault(); cancelBudget(); } }}
+                style={{
+                  width: 70,
+                  fontSize: 12,
+                  padding: "0 4px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 3,
+                  fontFamily: "inherit",
+                }}
+              />
+            ) : (
+              <button
+                onClick={startEditingBudget}
+                title="Click to edit token budget"
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px dashed #9ca3af",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  color: "inherit",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                {contextGauge.maxTokens.toLocaleString()}
+              </button>
+            )}{" "}
+            token budget (~{gaugePercent}%)
+          </span>
+          {session && !selectMode && (
+            <button
+              onClick={() => setSelectMode(true)}
+              title="Select messages to summarize"
+              style={{
+                padding: "2px 8px",
+                fontSize: 11,
+                backgroundColor: "transparent",
+                color: "#2563eb",
+                border: "1px solid #bfdbfe",
+                borderRadius: 4,
+                cursor: "pointer",
+              }}
+            >
+              Manually select &amp; summarize message(s)
+            </button>
+          )}
         </div>
       )}
       <div style={{ borderTop: "1px solid #e5e7eb", padding: 12 }}>

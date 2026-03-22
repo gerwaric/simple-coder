@@ -16,8 +16,7 @@ import {
   broadcastSummaryDeleted,
   broadcastContextStatus,
 } from "../ws/connections.js";
-
-const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 128000;
+import { getTokenBudget } from "../settings.js";
 
 export function contextRoutes(sql: Sql): Hono {
   const app = new Hono();
@@ -52,7 +51,7 @@ export function contextRoutes(sql: Sql): Hono {
 
     // Broadcast updated token counts
     const status = await getContextStatus(sql, msg.sessionId);
-    broadcastContextStatus(msg.sessionId, status.usedTokens, LLM_MAX_TOKENS);
+    broadcastContextStatus(msg.sessionId, status.usedTokens, getTokenBudget());
 
     return c.json({ ok: true });
   });
@@ -82,7 +81,7 @@ export function createSummaryRoutes(sql: Sql): Hono {
     if (msg) {
       broadcastSummaryDeleted(msg.sessionId, id, result.restoredMessageIds);
       const status = await getContextStatus(sql, msg.sessionId);
-      broadcastContextStatus(msg.sessionId, status.usedTokens, LLM_MAX_TOKENS);
+      broadcastContextStatus(msg.sessionId, status.usedTokens, getTokenBudget());
     }
 
     return c.json({ ok: true });

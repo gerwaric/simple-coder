@@ -22,20 +22,19 @@ import {
   broadcastContextStatus,
 } from "../ws/connections.js";
 import { dispatchPendingSessions } from "../ws/dispatch.js";
-
-const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 128000;
+import { getTokenBudget } from "../settings.js";
 
 export function sessionRoutes(sql: Sql): Hono {
   const app = new Hono();
 
   // Create session + first user message
   app.post("/", async (c) => {
-    const body = await c.req.json<{ title?: string; message: string }>();
+    const body = await c.req.json<{ title?: string; message: string; includeClaudeMd?: boolean }>();
     if (!body.message) {
       return c.json({ error: "message is required" }, 400);
     }
 
-    const session = await createSession(sql, body.title || "");
+    const session = await createSession(sql, body.title || "", body.includeClaudeMd ?? false);
     const message = await createMessage(sql, session.id, MessageRole.User, body.message);
 
     broadcastToUi({ type: "session:updated", session });
@@ -84,7 +83,7 @@ export function sessionRoutes(sql: Sql): Hono {
     if (!session) return c.json({ error: "not found" }, 404);
 
     const status = await getContextStatus(sql, id);
-    return c.json({ ...status, maxTokens: LLM_MAX_TOKENS });
+    return c.json({ ...status, maxTokens: getTokenBudget() });
   });
 
   // Create summary
@@ -102,7 +101,7 @@ export function sessionRoutes(sql: Sql): Hono {
       const summary = await createSummary(sql, id, body.content, body.createdBy, body.messageIds);
       broadcastSummaryCreated(id, summary);
       const status = await getContextStatus(sql, id);
-      broadcastContextStatus(id, status.usedTokens, LLM_MAX_TOKENS);
+      broadcastContextStatus(id, status.usedTokens, getTokenBudget());
       return c.json({ summary }, 201);
     } catch (err: any) {
       return c.json({ error: err.message }, 400);

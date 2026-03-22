@@ -5,6 +5,8 @@ import type { Sql } from "postgres";
 import { sessionRoutes } from "./routes/sessions.js";
 import { toolRoutes } from "./routes/tools.js";
 import { contextRoutes, createSummaryRoutes } from "./routes/context.js";
+import { fileRoutes } from "./routes/files.js";
+import { settingsRoutes } from "./routes/settings.js";
 import { createAgentWsHandlers } from "./ws/agent-ws.js";
 import { createUiWsHandlers } from "./ws/ui-ws.js";
 
@@ -17,6 +19,8 @@ export function createApp(sql: Sql) {
   app.route("/api/tools", toolRoutes(sql));
   app.route("/api/messages", contextRoutes(sql));
   app.route("/api/summaries", createSummaryRoutes(sql));
+  app.route("/api/files", fileRoutes());
+  app.route("/api/settings", settingsRoutes());
 
   // WebSocket routes
   app.get(

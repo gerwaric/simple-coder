@@ -28,6 +28,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simple_coder}
       POSTGRES_DB: ${POSTGRES_DB:-simple_coder}
       AGENT_SECRET: ${AGENT_SECRET:-change-me}
+      WORKSPACE_DIR: /workspace
+    volumes:
+      - workspace:/workspace:ro
     depends_on:
       postgres:
         condition: service_healthy
