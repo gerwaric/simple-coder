@@ -39,7 +39,13 @@
 | 10b | Context Tool + Dynamic System Prompt | ~~Completed~~ | |
 | 11 | UI Updates | ~~Completed~~ | |
 | 12 | Docker + Integration | ~~Completed~~ | |
-| 13 | Testing + Polish | **In Progress** | |
+| 13 | Testing + Polish | ~~Completed~~ | 81fec1e |
+
+## Audit Remediation
+
+| Phase | Description | Status | Commit |
+|-------|-------------|--------|--------|
+| 14 | Audit Remediation | **In Progress** | |
 
 ### Dependency Graph
 

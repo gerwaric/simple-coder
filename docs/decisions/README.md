@@ -27,3 +27,4 @@
 | 023 | [Session Lifecycle Operations from Sidebar](023-session-lifecycle-sidebar.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
 | 024 | [Agent Container Sandboxing](024-agent-container-sandboxing.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
 | 025 | [Real Database IDs for Tool Messages](025-real-ids-for-tool-messages.md) | Accepted | 2026-03-20 | [Conv 005](../conversations/005-phase-13-testing-and-ui-polish.md) |
+| 026 | [Audit Remediation as Single Phase](026-audit-remediation-phase.md) | Accepted | 2026-03-21 | [Conv 006](../conversations/006-code-audit-and-remediation-planning.md) |

@@ -23,3 +23,9 @@ Per-phase prompts for executing the implementation plan. Each prompt is self-con
 | 012 | 11 | [UI Updates](012-phase-11-ui.md) |
 | 013 | 12 | [Docker + Integration](013-phase-12-docker.md) |
 | 014 | 13 | [Testing + Polish](014-phase-13-testing-polish.md) |
+
+### Audit Remediation
+
+| # | Phase | Prompt |
+|---|-------|--------|
+| 015 | 14 | [Audit Remediation](015-phase-14-audit-remediation.md) |
