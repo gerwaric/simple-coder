@@ -42,6 +42,30 @@ export function getIdleAgent(): [string, AgentConnection] | undefined {
   return undefined;
 }
 
+/**
+ * Reserve an idle agent by setting a sentinel session ID.
+ * Returns the agentId if reservation succeeded, undefined if no idle agent.
+ * This prevents concurrent dispatches from grabbing the same agent.
+ */
+const RESERVING_SENTINEL = "__reserving__";
+
+export function reserveIdleAgent(): string | undefined {
+  for (const [id, conn] of agents) {
+    if (conn.currentSessionId === null) {
+      conn.currentSessionId = RESERVING_SENTINEL;
+      return id;
+    }
+  }
+  return undefined;
+}
+
+export function unreserveAgent(agentId: string): void {
+  const agent = agents.get(agentId);
+  if (agent && agent.currentSessionId === RESERVING_SENTINEL) {
+    agent.currentSessionId = null;
+  }
+}
+
 export function getAgentBySessionId(sessionId: string): [string, AgentConnection] | undefined {
   for (const [id, conn] of agents) {
     if (conn.currentSessionId === sessionId) return [id, conn];

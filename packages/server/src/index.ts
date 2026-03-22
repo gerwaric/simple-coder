@@ -5,6 +5,11 @@ import { sql } from "./db/index.js";
 import { initDb } from "./db/init.js";
 import { createApp } from "./app.js";
 
+// Validate environment
+if (!process.env.AGENT_SECRET) {
+  console.warn("WARNING: AGENT_SECRET not set, using default — set this in production");
+}
+
 const { app, injectWebSocket } = createApp(sql);
 
 const port = Number(process.env.SERVER_PORT) || 3000;

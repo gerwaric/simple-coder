@@ -45,7 +45,7 @@
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| 14 | Audit Remediation | **In Progress** | |
+| 14 | Audit Remediation | ~~Completed~~ | |
 
 ### Dependency Graph
 

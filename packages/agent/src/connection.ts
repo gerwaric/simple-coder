@@ -10,6 +10,7 @@ import { buildSystemPrompt } from "./system-prompt.js";
 import { toSdkMessages } from "./message-translator.js";
 
 const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 128000;
+const APPROVAL_TIMEOUT_MS = Number(process.env.APPROVAL_TIMEOUT_MS) || 5 * 60 * 1000; // 5 minutes
 
 export class AgentConnection {
   private ws: WebSocket | null = null;
@@ -389,7 +390,16 @@ export class AgentConnection {
 
   private waitForApproval(toolCallId: string): Promise<ToolApprovalResponse> {
     return new Promise((resolve) => {
-      this.approvalResolvers.set(toolCallId, resolve);
+      const timer = setTimeout(() => {
+        this.approvalResolvers.delete(toolCallId);
+        console.warn(`approval timeout for ${toolCallId} — auto-rejecting`);
+        resolve({ type: "tool:approval:response", toolCallId, approved: false });
+      }, APPROVAL_TIMEOUT_MS);
+
+      this.approvalResolvers.set(toolCallId, (response) => {
+        clearTimeout(timer);
+        resolve(response);
+      });
     });
   }
 

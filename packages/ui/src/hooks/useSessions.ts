@@ -16,11 +16,18 @@ export function useSessions() {
   const [streamingContent, setStreamingContent] = useState<Map<string, string>>(new Map());
   const [summaries, setSummaries] = useState<Map<string, Summary[]>>(new Map());
   const [contextGauge, setContextGauge] = useState<Map<string, ContextGauge>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  const handleError = useCallback((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(msg);
+    setError(msg);
+  }, []);
 
   // Load sessions on mount
   useEffect(() => {
-    api.listSessions().then(setSessions).catch(console.error);
-  }, []);
+    api.listSessions().then(setSessions).catch(handleError);
+  }, [handleError]);
 
   // Load messages when session selected
   useEffect(() => {
@@ -31,8 +38,8 @@ export function useSessions() {
       .then(({ messages: msgs }) => {
         setMessages((prev) => new Map(prev).set(selectedSessionId, msgs));
       })
-      .catch(console.error);
-  }, [selectedSessionId, messages]);
+      .catch(handleError);
+  }, [selectedSessionId, messages, handleError]);
 
   // Load context status when session selected
   useEffect(() => {
@@ -43,8 +50,8 @@ export function useSessions() {
       .then((gauge) => {
         setContextGauge((prev) => new Map(prev).set(selectedSessionId, gauge));
       })
-      .catch(console.error);
-  }, [selectedSessionId, contextGauge]);
+      .catch(handleError);
+  }, [selectedSessionId, contextGauge, handleError]);
 
   const upsertMessage = (msg: Message) => {
     setMessages((prev) => {
@@ -234,22 +241,36 @@ export function useSessions() {
   const { connected } = useWebSocket(handleWsMessage);
 
   const createSession = useCallback(async (message: string) => {
-    const { session } = await api.createSession("", message);
-    setSelectedSessionId(session.id);
-  }, []);
+    try {
+      const { session } = await api.createSession("", message);
+      setSelectedSessionId(session.id);
+    } catch (err) {
+      handleError(err);
+    }
+  }, [handleError]);
 
   const sendMessage = useCallback(
     async (content: string) => {
       if (!selectedSessionId) return;
-      await api.sendMessage(selectedSessionId, content);
+      try {
+        await api.sendMessage(selectedSessionId, content);
+      } catch (err) {
+        handleError(err);
+      }
     },
-    [selectedSessionId]
+    [selectedSessionId, handleError]
   );
 
   const stopSession = useCallback(async () => {
     if (!selectedSessionId) return;
-    await api.stopSession(selectedSessionId);
-  }, [selectedSessionId]);
+    try {
+      await api.stopSession(selectedSessionId);
+    } catch (err) {
+      handleError(err);
+    }
+  }, [selectedSessionId, handleError]);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const currentGauge = selectedSessionId ? contextGauge.get(selectedSessionId) || null : null;
   const currentSummaries = selectedSessionId ? summaries.get(selectedSessionId) || [] : [];
@@ -264,6 +285,8 @@ export function useSessions() {
     summaries: currentSummaries,
     contextGauge: currentGauge,
     connected,
+    error,
+    clearError,
     createSession,
     sendMessage,
     stopSession,

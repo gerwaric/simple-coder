@@ -3,6 +3,9 @@
 
 ## Decisions Made
 - [ADR-026: Audit Remediation as Single Phase](../decisions/026-audit-remediation-phase.md)
+- [ADR-027: Session Dispatch Concurrency](../decisions/027-dispatch-concurrency.md)
+- [ADR-028: Tool Path Validation](../decisions/028-tool-path-validation.md)
+- [ADR-029: Approval Timeout Policy](../decisions/029-approval-timeout.md)
 
 ## Discussion
 

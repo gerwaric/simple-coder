@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS summary_messages (
   PRIMARY KEY (summary_id, message_id),
   UNIQUE (message_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_tool_call_id ON messages(tool_call_id);
+CREATE INDEX IF NOT EXISTS idx_summary_messages_message_id ON summary_messages(message_id);
 `;
 
 export async function initDb(sql: Sql): Promise<void> {

@@ -1,6 +1,6 @@
 import { exec } from "node:child_process";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve, relative } from "node:path";
 
 async function resolveWorkspace(): Promise<string> {
   const dir = process.env.WORKSPACE_DIR || "/workspace";
@@ -16,6 +16,20 @@ let workspaceDir: string | null = null;
 async function getWorkspace(): Promise<string> {
   if (!workspaceDir) workspaceDir = await resolveWorkspace();
   return workspaceDir;
+}
+
+/**
+ * Validate that a file path resolves to within the workspace directory.
+ * Prevents directory traversal attacks (e.g., ../../etc/passwd).
+ */
+async function validatePath(filePath: string): Promise<string> {
+  const workspace = await getWorkspace();
+  const resolved = resolve(workspace, filePath);
+  const rel = relative(workspace, resolved);
+  if (rel.startsWith("..") || resolve(workspace, rel) !== resolved) {
+    throw new Error(`Path escapes workspace: ${filePath}`);
+  }
+  return resolved;
 }
 
 export async function executeTool(
@@ -62,7 +76,8 @@ async function executeReadFile(
   path: string,
 ): Promise<{ content: string } | { error: string }> {
   try {
-    const content = await readFile(path, "utf-8");
+    const resolved = await validatePath(path);
+    const content = await readFile(resolved, "utf-8");
     return { content };
   } catch (err: any) {
     return { error: err.message };
@@ -74,8 +89,9 @@ async function executeWriteFile(
   content: string,
 ): Promise<{ success: boolean } | { error: string }> {
   try {
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, "utf-8");
+    const resolved = await validatePath(path);
+    await mkdir(dirname(resolved), { recursive: true });
+    await writeFile(resolved, content, "utf-8");
     return { success: true };
   } catch (err: any) {
     return { error: err.message };
