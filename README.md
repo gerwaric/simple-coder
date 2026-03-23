@@ -42,6 +42,8 @@ The agent has these tools:
 
 My core idea for this project was transparent context management. I was inspired by my frustration with Cursor's inability to tell me about the state of its own context window.
 
+Demo Video: https://bit.ly/4bHXtEI
+
 In `simle-coder`, both the user and the agent have tools to manipulate the context directly. The agent can drop, summarize, or restore messages via a first-class `context` tool. The UI shows a live context gauge and lets the user do the same manually.
 
 Other key decisions:
@@ -180,7 +182,3 @@ This project was built entirely with [Claude Code](https://claude.com/claude-cod
 3. **Incremental commits** — each phase produces one or more commits with meaningful messages
 
 The `.claude/` directory, `CLAUDE.md`, planning docs, and conversation records are all committed to show the full AI-assisted development process.
-
-### Demo
-
-_Loom video to be added._
