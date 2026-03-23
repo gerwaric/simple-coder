@@ -1,13 +1,14 @@
 # Known Issues
 
-## Orphaned Tool Calls in Message History
+## ~~Orphaned Tool Calls in Message History~~ (Fixed)
 
-**Severity:** High — can make a session permanently unusable
+**Severity:** High — could make a session permanently unusable
 **Discovered:** [Conversation 009](conversations/009-bug-fixes-and-rate-limit-handling.md)
+**Fixed:** Conversation 010
 
-When the agent crashes, disconnects, or is interrupted mid-tool-loop (e.g., by hot reload or rate limiting), the message history can end up with a `tool_use` block without a matching `tool_result`. The Anthropic API rejects this with `invalid_request_error`, making the session unrecoverable.
+When the agent crashes, disconnects, or is interrupted mid-tool-loop (e.g., by hot reload or rate limiting), the message history can end up with mismatched `tool_use`/`tool_result` pairs. The Anthropic API requires strict positional pairing: each `tool_result` must reference a `tool_use` in the immediately preceding assistant message, and vice versa.
 
-**Potential fix:** The `toSdkMessages` translator in `packages/agent/src/message-translator.ts` could detect unpaired tool calls at the end of the history and either inject a synthetic "tool call was interrupted" result or drop the orphan.
+**Fix:** The `toSdkMessages` translator in `packages/agent/src/message-translator.ts` now repairs both directions: orphaned `tool_use` blocks get synthetic "interrupted" results injected, and orphaned `tool_result` blocks referencing non-existent calls are dropped. Validation is positional (checks the immediately preceding assistant message), not global.
 
 ## Disconnect Recovery Only Handles One Session
 
