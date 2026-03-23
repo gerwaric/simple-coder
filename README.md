@@ -1,6 +1,6 @@
 # Simple-Coder
 
-A sync-based headless coding agent with tools, human-in-the-loop approval, and context management. Hono server, agent daemon, and React UI. Built as a HumanLayer take-home assessment.
+A sync-based headless coding agent with tools, human-in-the-loop approval, and context management.
 
 ## Quick Start
 
@@ -26,6 +26,35 @@ Open **http://localhost:3000**. Type a message to create a session. The agent pi
                             │ Postgres │
                             └──────────┘
 ```
+
+## Summary
+
+Simple-Coder is a coding agent built with Hono, Postgres, the Vercel AI SDK, and React.
+
+The server acts as a stateless broker between an autonomous agent daemon and a browser UI, with all persistent state in Postgres. The agent connects outbound to the server — no exposed ports — and runs a tool loop in a workspace shared between sessions.
+
+The agent has these tools:
+1. `read_file` - Read files from the workspace
+4. `write_file` - Write files to the workspace
+3. `bash` - Run shell commands
+2. `context` - Manage context window (drop/summarize/restore messages)
+5. `ask_human` - Ask the user a question
+
+My core idea for this project was transparent context management. I was inspired by my frustration with Cursor's inability to tell me about the state of its own context window.
+
+In `simle-coder`, both the user and the agent have tools to manipulate the context directly. The agent can drop, summarize, or restore messages via a first-class `context` tool. The UI shows a live context gauge and lets the user do the same manually.
+
+Other key decisions:
+- Zero-tools baseline — Built full conversational infrastructure before adding any tools.
+- Own agent loop — Wrote the tool orchestration loop instead of using the SDK's, so control flow is visible in the code.
+- User-written summaries — Human can summarize context just like the agent.
+- The server can restart without losing state, and agents reconnect automatically. `docker compose up --scale agent=3` works with zero code changes.
+
+The project was built with Claude Code using phased prompts, with full planning docs and conversation records committed to the repo for transparency. Codex was used to review plans before execution.
+
+---
+
+## Details
 
 **Three components, one port:**
 
@@ -79,7 +108,7 @@ The agent manages its context window proactively:
 - **Activate** dropped or summarized messages back to active
 - A context gauge shows current token usage vs. the configured maximum
 
-## Project Structure
+### Project Structure
 
 ```
 packages/
@@ -89,7 +118,7 @@ packages/
 └── ui/        — React + Vite frontend
 ```
 
-## Development
+### Development
 
 ```bash
 pnpm install
@@ -104,7 +133,7 @@ pnpm dev:ui        # Vite dev server on :5173
 pnpm test
 ```
 
-## Design Decisions
+### Design Decisions
 
 Detailed rationale is in [`docs/decisions/`](docs/decisions/). Key choices:
 
@@ -122,7 +151,7 @@ Detailed rationale is in [`docs/decisions/`](docs/decisions/). Key choices:
 
 Full design rationale is in [`docs/decisions/`](docs/decisions/) and [`docs/coding-agent-plan.md`](docs/coding-agent-plan.md).
 
-## Testing
+### Testing
 
 63 integration tests across 7 test files:
 
@@ -142,7 +171,7 @@ docker compose exec postgres psql -U simple_coder -c "CREATE DATABASE simple_cod
 pnpm test
 ```
 
-## AI Coding Agent Usage
+### AI Coding Agent Usage
 
 This project was built entirely with [Claude Code](https://claude.com/claude-code) (Claude Opus). The methodology:
 
@@ -152,6 +181,6 @@ This project was built entirely with [Claude Code](https://claude.com/claude-cod
 
 The `.claude/` directory, `CLAUDE.md`, planning docs, and conversation records are all committed to show the full AI-assisted development process.
 
-## Demo
+### Demo
 
 _Loom video to be added._
