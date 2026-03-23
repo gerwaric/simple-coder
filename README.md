@@ -37,8 +37,8 @@ Open **http://localhost:3000**. Type a message to create a session. The agent pi
 
 Two paths with different trust models:
 
-- `/ws/agent` — Bidirectional. Agent registers with a shared secret, receives session assignments, streams LLM tokens back, sends tool calls/results, and receives approval responses. Server validates authentication and rejects unauthorized connections.
-- `/ws/ui` — Server→UI broadcast. Session updates, message events, streaming tokens, tool approval requests, and context status updates. No authentication (single-user localhost deployment).
+- `/ws/agent` — Bidirectional. Agent registers with a shared secret, receives session assignments, streams LLM tokens back, sends tool calls/results, receives approval responses, and sends transient warnings (e.g., rate limit notifications). Server validates authentication and rejects unauthorized connections.
+- `/ws/ui` — Server→UI broadcast. Session updates, message events, streaming tokens, tool approval requests, context status updates, and agent warnings. No authentication (single-user localhost deployment).
 
 All messages are JSON with a discriminated `type` field. Types are defined in `packages/shared/src/ws-messages.ts`.
 
@@ -65,6 +65,10 @@ The agent has five tools, classified by safety:
 | `ask_human` | Ask the user a question | Blocks for text response |
 
 Safe tools (`read_file`, `context`) execute immediately. Consequential tools (`bash`, `write_file`) pause for user approval via the UI. `ask_human` blocks until the user provides a text response.
+
+### Error Handling
+
+The agent handles LLM API errors gracefully. Rate limit errors (HTTP 429) are detected automatically: the agent extracts the reset timestamp from the API response headers, sends a transient `agent:warning` to the UI (not persisted to the database), and retries after the rate limit window resets. The UI displays warnings inline in the chat timeline with a live countdown timer.
 
 ### Context Management
 

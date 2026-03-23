@@ -158,6 +158,16 @@ export function createAgentWsHandlers(sql: Sql) {
         break;
       }
 
+      case "agent:warning": {
+        broadcastToUi({
+          type: "agent:warning",
+          sessionId: msg.sessionId,
+          message: msg.message,
+          retryAt: msg.retryAt,
+        });
+        break;
+      }
+
       case "tool:approval:request": {
         const approvalMsg = await createMessage(
           sql,

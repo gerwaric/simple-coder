@@ -117,6 +117,13 @@ export interface TurnComplete {
   sessionId: string;
 }
 
+export interface AgentWarning {
+  type: "agent:warning";
+  sessionId: string;
+  message: string;
+  retryAt?: string; // ISO timestamp for rate limit reset
+}
+
 export type AgentToServer =
   | AgentRegister
   | AgentReady
@@ -128,7 +135,8 @@ export type AgentToServer =
   | ToolResult
   | ToolApprovalRequest
   | SessionCompleted
-  | TurnComplete;
+  | TurnComplete
+  | AgentWarning;
 
 export type ServerToAgent =
   | SessionAssign
@@ -224,6 +232,13 @@ export interface UIContextStatus {
   maxTokens: number;
 }
 
+export interface UIAgentWarning {
+  type: "agent:warning";
+  sessionId: string;
+  message: string;
+  retryAt?: string;
+}
+
 export interface SessionDeleted {
   type: "session:deleted";
   sessionId: string;
@@ -242,4 +257,5 @@ export type ServerToUI =
   | UIContextUpdated
   | UISummaryCreated
   | UISummaryDeleted
-  | UIContextStatus;
+  | UIContextStatus
+  | UIAgentWarning;

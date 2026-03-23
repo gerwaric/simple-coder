@@ -3,6 +3,7 @@ import type { Message, Session, Summary } from "@simple-coder/shared";
 import { MessageBubble } from "./MessageBubble";
 import { ToolPairBubble } from "./ToolPairBubble";
 import { StreamingMessage } from "./StreamingMessage";
+import { WarningBanner } from "./WarningBanner";
 import * as api from "../api";
 
 interface ContextGauge {
@@ -10,13 +11,20 @@ interface ContextGauge {
   maxTokens: number;
 }
 
+interface AgentWarningItem {
+  message: string;
+  retryAt?: string;
+  receivedAt: string;
+}
+
 type DisplayItem =
   | { kind: "message"; message: Message }
   | { kind: "summary"; summary: Summary }
   | { kind: "toolPair"; call: Message; result: Message }
-  | { kind: "toolPending"; call: Message };
+  | { kind: "toolPending"; call: Message }
+  | { kind: "warning"; warning: AgentWarningItem };
 
-function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayItem[] {
+function buildDisplayList(messages: Message[], summaries: Summary[], warnings: AgentWarningItem[] = []): DisplayItem[] {
   const summarizedIds = new Set(summaries.flatMap((s) => s.messageIds));
   const items: DisplayItem[] = [];
 
@@ -60,24 +68,22 @@ function buildDisplayList(messages: Message[], summaries: Summary[]): DisplayIte
     items.push({ kind: "summary", summary });
   }
 
+  // Add warnings
+  for (const warning of warnings) {
+    items.push({ kind: "warning", warning });
+  }
+
   // Sort by timestamp
-  items.sort((a, b) => {
-    const aTime = a.kind === "message"
-      ? a.message.createdAt
-      : a.kind === "summary"
-        ? a.summary.positionAt
-        : a.kind === "toolPair"
-          ? a.call.createdAt
-          : a.call.createdAt;
-    const bTime = b.kind === "message"
-      ? b.message.createdAt
-      : b.kind === "summary"
-        ? b.summary.positionAt
-        : b.kind === "toolPair"
-          ? b.call.createdAt
-          : b.call.createdAt;
-    return aTime.localeCompare(bTime);
-  });
+  const getTime = (item: DisplayItem): string => {
+    switch (item.kind) {
+      case "message": return item.message.createdAt;
+      case "summary": return item.summary.positionAt;
+      case "toolPair": return item.call.createdAt;
+      case "toolPending": return item.call.createdAt;
+      case "warning": return item.warning.receivedAt;
+    }
+  };
+  items.sort((a, b) => getTime(a).localeCompare(getTime(b)));
 
   return items;
 }
@@ -93,6 +99,7 @@ export function ChatPanel({
   onStop,
   onCreateSession,
   onTokenBudgetChange,
+  agentWarnings,
 }: {
   session: Session | null;
   messages: Message[];
@@ -104,6 +111,7 @@ export function ChatPanel({
   onStop: () => void;
   onCreateSession: (message: string) => void;
   onTokenBudgetChange?: (budget: number) => void;
+  agentWarnings?: { message: string; retryAt?: string; receivedAt: string }[];
 }) {
   const [input, setInput] = useState("");
   const [selectMode, setSelectMode] = useState(false);
@@ -139,7 +147,7 @@ export function ChatPanel({
   const isPending = session?.state === "pending";
   const canSend = !session || isActive || isPending;
 
-  const displayItems = buildDisplayList(messages, summaries);
+  const displayItems = buildDisplayList(messages, summaries, agentWarnings);
 
   // Context gauge calculations
   const gaugePercent = contextGauge
@@ -257,6 +265,15 @@ export function ChatPanel({
               <ToolPairBubble
                 key={item.call.id}
                 call={item.call}
+              />
+            );
+          }
+          if (item.kind === "warning") {
+            return (
+              <WarningBanner
+                key={`warning-${item.warning.receivedAt}`}
+                message={item.warning.message}
+                retryAt={item.warning.retryAt}
               />
             );
           }

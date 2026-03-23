@@ -205,6 +205,8 @@ export class AgentConnection {
         const systemPrompt = buildSystemPrompt({ usedTokens, maxTokens: LLM_MAX_TOKENS, claudeMdContent: this.claudeMdContent });
         const sdkMessages = toSdkMessages(activeMessages);
 
+        console.log(`[llm] calling streamText — ${sdkMessages.length} sdk messages, ~${usedTokens} tokens`);
+
         const result = this.llm.streamWithTools({
           system: systemPrompt,
           messages: sdkMessages,
@@ -216,8 +218,19 @@ export class AgentConnection {
         let fullThinking = "";
         let fullContent = "";
         let thinkingComplete = false;
+        let firstChunk = true;
 
+        let streamError: any = null;
         for await (const part of result.fullStream) {
+          if (firstChunk) {
+            console.log(`[llm] first chunk received (type: ${part.type})`);
+            firstChunk = false;
+          }
+          if (part.type === "error") {
+            console.error(`[llm] stream error:`, part.error);
+            streamError = part.error;
+            break;
+          }
           if (part.type === "reasoning") {
             fullThinking += part.textDelta;
             this.send({
@@ -243,9 +256,36 @@ export class AgentConnection {
           }
         }
 
+        console.log(`[llm] stream complete — content: ${fullContent.length} chars, thinking: ${fullThinking.length} chars`);
+
+        if (streamError) {
+          const retryAt = this.extractRateLimitReset(streamError);
+          if (retryAt) {
+            const waitMs = Math.max(0, new Date(retryAt).getTime() - Date.now()) + 1000; // 1s buffer
+            console.log(`[llm] rate limited — waiting ${Math.ceil(waitMs / 1000)}s until ${retryAt}`);
+            this.send({
+              type: "agent:warning",
+              sessionId,
+              message: "Rate limited by LLM provider — waiting for reset",
+              retryAt,
+            });
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+            console.log(`[llm] retrying after rate limit`);
+            continue; // retry the LLM call
+          }
+          console.error(`[llm] aborting tool loop due to stream error`);
+          this.send({
+            type: "agent:warning",
+            sessionId,
+            message: "LLM error — aborting current turn",
+          });
+          break;
+        }
+
         // Get tool calls from the result
         const toolCalls = await result.toolCalls;
         const hasToolCalls = toolCalls && toolCalls.length > 0;
+        console.log(`[llm] tool calls: ${hasToolCalls ? toolCalls.map((tc: any) => tc.toolName).join(", ") : "none"}`);
 
         if (fullContent || !hasToolCalls) {
           // Send the assistant message if there's content
@@ -395,6 +435,7 @@ export class AgentConnection {
         return;
       }
       console.error("LLM error:", err.message);
+      console.error("LLM error stack:", err.stack);
     } finally {
       this.abortController = null;
     }
@@ -435,6 +476,17 @@ export class AgentConnection {
       tokenCount: null,
       createdAt: new Date().toISOString(),
     };
+  }
+
+  private extractRateLimitReset(error: any): string | null {
+    // The Vercel AI SDK wraps errors in layers — walk through all possible locations
+    for (const obj of [error, error?.cause, error?.lastError, error?.lastError?.cause]) {
+      if (obj?.statusCode === 429) {
+        const reset = obj?.responseHeaders?.["anthropic-ratelimit-input-tokens-reset"];
+        if (reset) return reset;
+      }
+    }
+    return null;
   }
 
   private send(msg: Record<string, unknown>): void {

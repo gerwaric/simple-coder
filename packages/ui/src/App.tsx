@@ -61,6 +61,7 @@ export function App() {
     sendMessage,
     stopSession,
     refreshContextGauge,
+    agentWarnings,
   } = useSessions();
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) || null;
@@ -142,6 +143,7 @@ export function App() {
               onSend={sendMessage}
               onStop={stopSession}
               onCreateSession={(msg) => createSession(msg, includeClaudeMd)}
+              agentWarnings={agentWarnings}
               onTokenBudgetChange={async (budget) => {
                 try {
                   await api.setTokenBudget(budget);

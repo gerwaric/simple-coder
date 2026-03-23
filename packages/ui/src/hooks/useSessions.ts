@@ -16,6 +16,7 @@ export function useSessions() {
   const [streamingContent, setStreamingContent] = useState<Map<string, string>>(new Map());
   const [summaries, setSummaries] = useState<Map<string, Summary[]>>(new Map());
   const [contextGauge, setContextGauge] = useState<Map<string, ContextGauge>>(new Map());
+  const [agentWarnings, setAgentWarnings] = useState<Map<string, { message: string; retryAt?: string; receivedAt: string }[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
   const handleError = useCallback((err: unknown) => {
@@ -231,6 +232,16 @@ export function useSessions() {
         );
         break;
 
+      case "agent:warning":
+        setAgentWarnings((prev) => {
+          const existing = prev.get(msg.sessionId) || [];
+          return new Map(prev).set(msg.sessionId, [
+            ...existing,
+            { message: msg.message, retryAt: msg.retryAt, receivedAt: new Date().toISOString() },
+          ]);
+        });
+        break;
+
       case "session:deleted":
         setSessions((prev) => prev.filter((s) => s.id !== msg.sessionId));
         setSelectedSessionId((prev) => prev === msg.sessionId ? null : prev);
@@ -278,6 +289,7 @@ export function useSessions() {
 
   const currentGauge = selectedSessionId ? contextGauge.get(selectedSessionId) || null : null;
   const currentSummaries = selectedSessionId ? summaries.get(selectedSessionId) || [] : [];
+  const currentWarnings = selectedSessionId ? agentWarnings.get(selectedSessionId) || [] : [];
 
   return {
     sessions,
@@ -295,5 +307,6 @@ export function useSessions() {
     sendMessage,
     stopSession,
     refreshContextGauge,
+    agentWarnings: currentWarnings,
   };
 }
