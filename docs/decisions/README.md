@@ -37,3 +37,4 @@
 | 033 | [Configurable Token Budget](033-configurable-token-budget.md) | Accepted | 2026-03-22 | [Conv 008](../conversations/008-filesystem-viewer-and-token-budget.md) |
 | 034 | [Transient Agent Warnings](034-transient-agent-warnings.md) | Accepted | 2026-03-22 | [Conv 009](../conversations/009-bug-fixes-and-rate-limit-handling.md) |
 | 035 | [Context Status Broadcast on Agent Messages](035-context-status-broadcast-on-agent-messages.md) | Accepted | 2026-03-22 | [Conv 009](../conversations/009-bug-fixes-and-rate-limit-handling.md) |
+| 036 | [Positional Repair of Orphaned Tool Pairs](036-positional-tool-pair-repair.md) | Accepted | 2026-03-22 | [Conv 010](../conversations/010-orphan-tool-fix-and-demo-planning.md) |
