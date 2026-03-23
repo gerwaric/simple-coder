@@ -16,7 +16,7 @@ Open **http://localhost:3000**. Type a message to create a session. The agent pi
 ## Architecture
 
 ```
-┌─────────┐  WS (/ws/ui)   ┌──────────────┐  WS (/ws/agent)  ┌───────────┐
+┌─────────┐  WS (/ws/ui)   ┌──────────────┐  WS (/ws/agent)   ┌───────────┐
 │  React  │ ←────────────→ │    Hono      │ ←──────────────── │   Agent   │
 │  (Vite) │   HTTP /api/*  │  Server      │   (outbound only) │  (Daemon) │
 └─────────┘                └──────┬───────┘                   └───────────┘
