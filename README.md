@@ -76,7 +76,7 @@ The agent manages its context window proactively:
 
 - **Drop** messages to remove them from the active context (recoverable)
 - **Summarize** a group of messages into a shorter summary
-- **Restore** dropped or summarized messages back to active
+- **Activate** dropped or summarized messages back to active
 - A context gauge shows current token usage vs. the configured maximum
 
 ## Project Structure
@@ -110,17 +110,17 @@ Detailed rationale is in [`docs/decisions/`](docs/decisions/). Key choices:
 
 **Infrastructure first, then tools.** Phases 0–7 built a zero-tool conversational agent to prove streaming, sync, persistence, and real-time UI work. Phases 8–12 added the tool system, approval flow, and context management on top of proven infrastructure.
 
-**Three-way safety classification.** Tool calls are classified as `execute` (safe — run immediately), `approve` (consequential — wait for user approval), or `ask_human` (block for text response). This is an extensible seam: the classifier can be swapped without changing the tool loop. See ADR-013.
+**Three-way safety classification.** Tool calls are classified as `execute` (safe — run immediately), `approve` (consequential — wait for user approval), or `ask_human` (block for text response). This is an extensible seam: the classifier can be swapped without changing the tool loop. See ADR-010.
 
-**Flat message model for tool calls.** Tool calls and results are stored as regular messages with additional columns (`toolName`, `toolArgs`, `toolCallId`, `approvalStatus`), not in a separate table. This keeps the message timeline linear and simplifies the UI. See ADR-010.
+**Flat message model for tool calls.** Tool calls and results are stored as regular messages with additional columns (`toolName`, `toolArgs`, `toolCallId`, `approvalStatus`), not in a separate table. This keeps the message timeline linear and simplifies the UI. See ADR-013.
 
-**Context management as a first-class tool.** The agent can manage its own context window via the `context` tool — dropping, summarizing, and restoring messages. Summaries replace groups of messages with a shorter text, enforced by database constraints (no overlapping summaries, only active messages can be summarized). See ADR-015.
+**Context management as a first-class tool.** The agent can manage its own context window via the `context` tool — dropping, summarizing, and activating messages. Summaries replace groups of messages with a shorter text, enforced by database constraints (no overlapping summaries, only active messages can be summarized). See ADR-012.
 
 **Server as stateless broker.** The server holds connections in memory but all persistent state lives in Postgres. A server restart means agents reconnect and sessions resume from the database. This also enables `docker compose up --scale agent=3` with zero code changes.
 
 **Turn-based agent lifecycle.** After each tool loop completes, the agent sends `turn:complete` and releases the session. Follow-up messages re-dispatch the session with full history. This keeps agents available for other work between turns. See ADR-019.
 
-Full design rationale is in [`docs/decisions/`](docs/decisions/) (ADRs 001–020) and [`docs/coding-agent-plan.md`](docs/coding-agent-plan.md).
+Full design rationale is in [`docs/decisions/`](docs/decisions/) and [`docs/coding-agent-plan.md`](docs/coding-agent-plan.md).
 
 ## Testing
 
