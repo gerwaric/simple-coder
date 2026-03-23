@@ -10,3 +10,4 @@
 | 006 | [Code Audit and Remediation Planning](006-code-audit-and-remediation-planning.md) | 2026-03-21 | ADR-026 through ADR-029 |
 | 007 | [HumanLayer Research and Context Features](007-humanlayer-research-and-context-features.md) | 2026-03-22 | ADR-030, ADR-031 |
 | 008 | [Filesystem Viewer and Token Budget](008-filesystem-viewer-and-token-budget.md) | 2026-03-22 | ADR-032, ADR-033 |
+| 009 | [Bug Fixes and Rate Limit Handling](009-bug-fixes-and-rate-limit-handling.md) | 2026-03-22 | ADR-034, ADR-035 |

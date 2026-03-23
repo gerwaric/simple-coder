@@ -35,3 +35,5 @@
 | 031 | [CLAUDE.md Prepend to Context](031-claude-md-prepend.md) | Accepted | 2026-03-22 | [Conv 007](../conversations/007-humanlayer-research-and-context-features.md) |
 | 032 | [Workspace Filesystem Viewer](032-workspace-filesystem-viewer.md) | Accepted | 2026-03-22 | [Conv 008](../conversations/008-filesystem-viewer-and-token-budget.md) |
 | 033 | [Configurable Token Budget](033-configurable-token-budget.md) | Accepted | 2026-03-22 | [Conv 008](../conversations/008-filesystem-viewer-and-token-budget.md) |
+| 034 | [Transient Agent Warnings](034-transient-agent-warnings.md) | Accepted | 2026-03-22 | [Conv 009](../conversations/009-bug-fixes-and-rate-limit-handling.md) |
+| 035 | [Context Status Broadcast on Agent Messages](035-context-status-broadcast-on-agent-messages.md) | Accepted | 2026-03-22 | [Conv 009](../conversations/009-bug-fixes-and-rate-limit-handling.md) |
